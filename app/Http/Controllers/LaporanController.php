@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Produk;
-use App\Models\JasaServis;
 use App\Models\AturanChatbot;
 use App\Models\Transaksi;
 use App\Models\ServisDetail;
@@ -35,10 +34,6 @@ class LaporanController extends Controller
                 $data = Produk::with('kategori')->where('stok', '<', 5)->get();
                 $judul = 'Laporan Stok Produk Menipis (< 5)';
                 break;
-            case 'jasa':
-                $data = JasaServis::all();
-                $judul = 'Laporan Data Layanan Jasa Servis';
-                break;
             case 'chatbot':
                 $data = AturanChatbot::all();
                 $judul = 'Laporan Knowledge Base AI (Aturan Chatbot)';
@@ -63,6 +58,8 @@ class LaporanController extends Controller
                 return $this->cetakMargin();
             case 'servis-ringkasan':
                 return $this->cetakServisRingkasan();
+            case 'servis-rekap':
+                return $this->cetakServisRekap();
             case 'keuangan':
                 return $this->cetakKeuangan();
             case 'chatbot-analitik':
@@ -117,6 +114,58 @@ class LaporanController extends Controller
         ));
         $pdf->setPaper('A4', 'landscape');
         return $pdf->stream('Laporan_Ringkasan_Servis_' . time() . '.pdf');
+    }
+
+    public function cetakServisRekap()
+    {
+        $judul = 'Laporan Rekapitulasi & Kinerja Servis';
+        $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
+
+        $servis = ServisDetail::with('transaksi', 'teknisi')->latest()->get();
+
+        $total_unit = $servis->count();
+        $status_count = $servis->groupBy('status')->map->count();
+
+        $selesai = $status_count->get('selesai', 0);
+        $proses = $status_count->get('proses', 0);
+        $diambil = $status_count->get('diambil', 0);
+        $garansi = $status_count->get('garansi', 0);
+        $batal = $status_count->get('batal', 0);
+
+        // Sum of all splits
+        $total_estimasi_biaya = $servis->sum('estimasi_biaya');
+        $total_upah_teknisi = $servis->sum('upah_teknisi');
+        $total_keuntungan_toko = $servis->sum('keuntungan_toko');
+
+        // Revenue from LUNAS transactions
+        $total_pendapatan_servis = $servis->filter(function($s) {
+            return $s->transaksi && $s->transaksi->status == 'Lunas';
+        })->sum('estimasi_biaya');
+
+        // Group by technician to show statistics
+        $teknisi_stats = $servis->groupBy('teknisi_id')->map(function($group) {
+            $teknisi_name = $group->first()->teknisi->name ?? 'Belum Ditugaskan';
+            return [
+                'name' => $teknisi_name,
+                'total_unit' => $group->count(),
+                'selesai' => $group->whereIn('status', ['selesai', 'diambil'])->count(),
+                'proses' => $group->where('status', 'proses')->count(),
+                'batal' => $group->where('status', 'batal')->count(),
+                'estimasi_revenue' => $group->sum('estimasi_biaya'),
+                'estimasi_upah' => $group->sum('upah_teknisi'),
+                'estimasi_keuntungan' => $group->sum('keuntungan_toko'),
+            ];
+        })->sortByDesc('total_unit')->values()->toArray();
+
+        $pdf = Pdf::loadView('laporan.pdf-servis-rekap', compact(
+            'judul', 'waktu_cetak', 'servis',
+            'total_unit', 'selesai', 'proses', 'diambil', 'garansi', 'batal',
+            'total_estimasi_biaya', 'total_upah_teknisi', 'total_keuntungan_toko',
+            'total_pendapatan_servis', 'teknisi_stats'
+        ));
+        
+        $pdf->setPaper('A4', 'landscape');
+        return $pdf->stream('Laporan_Rekap_Servis_' . time() . '.pdf');
     }
 
     public function cetakKeuangan()

@@ -30,8 +30,8 @@
 </head>
 <body>
     <div class="header">
-        <h1 class="toko-nama">NUSANTARA JAYA KOMPUTER</h1>
-        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | email: admin@njk.com | Telp: 0812-3456-7890</p>
+        <h1 class="toko-nama">NUSANTARA JAYA COMPUTER</h1>
+        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | email: admin@njk.com | Telp: 0851-8239-2525 / 0852-8239-2526</p>
     </div>
     <div class="judul-laporan">{{ $judul }}</div>
     <div class="info">Periode: Seluruh Transaksi Lunas | Tanggal Cetak: {{ $waktu_cetak }}</div>

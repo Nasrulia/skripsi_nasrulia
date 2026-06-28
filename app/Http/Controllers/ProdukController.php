@@ -9,11 +9,22 @@ use Illuminate\Support\Facades\Storage;
 
 class ProdukController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil data produk beserta relasi kategorinya
-        $produk = Produk::with('kategori')->latest()->get();
-        // Ambil data kategori untuk pilihan di dropdown form
+        $query = Produk::with('kategori');
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_produk', 'like', '%' . $search . '%')
+                  ->orWhere('merk', 'like', '%' . $search . '%')
+                  ->orWhereHas('kategori', function ($catQuery) use ($search) {
+                      $catQuery->where('nama_kategori', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $produk = $query->latest()->get();
         $kategori = Kategori::all();
         
         return view('produk.index', compact('produk', 'kategori'));

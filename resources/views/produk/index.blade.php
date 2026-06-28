@@ -18,6 +18,33 @@
 
     <div class="card border-0 shadow-sm rounded-4 bg-white">
         <div class="card-body p-4">
+            <!-- Fitur Pencarian -->
+            <form action="{{ route('produk.index') }}" method="GET" class="mb-4">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-light-subtle text-muted px-3" id="search-icon">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" name="search" class="form-control bg-light border-light-subtle py-2 fs-6" placeholder="Cari nama produk, merk, kategori..." value="{{ request('search') }}" aria-describedby="search-icon">
+                            @if(request('search'))
+                                <a href="{{ route('produk.index') }}" class="btn btn-outline-secondary border-light-subtle d-flex align-items-center" title="Bersihkan Pencarian">
+                                    <i class="bi bi-x-lg"></i>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                    @if(request('search'))
+                        <div class="col-md-6 col-lg-8">
+                            <span class="text-muted small">
+                                Menampilkan hasil pencarian untuk: <strong class="text-dark">"{{ request('search') }}"</strong> 
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1">{{ $produk->count() }} barang</span>
+                            </span>
+                        </div>
+                    @endif
+                </div>
+            </form>
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">

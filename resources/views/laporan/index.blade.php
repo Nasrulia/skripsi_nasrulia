@@ -29,12 +29,8 @@
                             <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 2. Laporan Stok Menipis</span>
                             <i class="bi bi-printer"></i>
                         </a>
-                        <a href="{{ route('laporan.cetak', 'jasa') }}" target="_blank" class="btn btn-outline-dark text-start p-3 rounded-3 d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 3. Laporan Data Jasa Servis</span>
-                            <i class="bi bi-printer"></i>
-                        </a>
                         <a href="{{ route('laporan.cetak', 'chatbot') }}" target="_blank" class="btn btn-outline-dark text-start p-3 rounded-3 d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 4. Laporan Aturan Chatbot AI</span>
+                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 3. Laporan Aturan Chatbot AI</span>
                             <i class="bi bi-printer"></i>
                         </a>
                     </div>
@@ -85,12 +81,16 @@
                             <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 10. Laporan Ringkasan Servis</span>
                             <i class="bi bi-printer"></i>
                         </a>
+                        <a href="{{ route('laporan.cetak', 'servis-rekap') }}" target="_blank" class="btn btn-outline-dark text-start p-3 rounded-3 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 11. Laporan Rekapitulasi Servis</span>
+                            <i class="bi bi-printer"></i>
+                        </a>
                         <a href="{{ route('laporan.cetak', 'keuangan') }}" target="_blank" class="btn btn-outline-dark text-start p-3 rounded-3 d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 11. Laporan Keuangan Ringkas</span>
+                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 12. Laporan Keuangan Ringkas</span>
                             <i class="bi bi-printer"></i>
                         </a>
                         <a href="{{ route('laporan.cetak', 'chatbot-analitik') }}" target="_blank" class="btn btn-outline-dark text-start p-3 rounded-3 d-flex justify-content-between align-items-center border-warning bg-warning bg-opacity-10 fw-bold">
-                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 12. Laporan Analitik Chatbot AI</span>
+                            <span><i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i> 13. Laporan Analitik Chatbot AI</span>
                             <i class="bi bi-printer"></i>
                         </a>
                     </div>

@@ -23,15 +23,16 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('jasa.index') }}" class="{{ request()->is('jasa*') ? 'active' : '' }}">
-                    <i class="bi bi-tools"></i> Jasa Servis
-                </a>
-            </li>
-            <li>
                 <a href="{{ route('ekspedisi.index') }}" class="{{ request()->is('ekspedisi*') ? 'active' : '' }}">
                     <i class="bi bi-truck"></i> Ekspedisi
                 </a>
             </li>
+            <li>
+                <a href="{{ route('data-teknisi.index') }}" class="{{ request()->is('data-teknisi*') ? 'active' : '' }}">
+                    <i class="bi bi-person-badge"></i> Data Teknisi
+                </a>
+            </li>
+
             <li class="px-4 mt-4 mb-2 text-uppercase fw-bold" style="font-size: 0.7rem; color: #565674; letter-spacing: 1px;">Laporan Toko</li>
             <li>
                 <a href="{{ route('laporan.index') }}" class="{{ request()->is('laporan*') ? 'active' : '' }}">
@@ -49,7 +50,7 @@
             </li>
         @endif
 
-        @if(Auth::user()->peran == 'teknisi')
+        @if(Auth::user()->peran == 'admin' || Auth::user()->peran == 'kasir' || Auth::user()->peran == 'teknisi')
             <li class="px-4 mt-4 mb-2 text-uppercase fw-bold" style="font-size: 0.7rem; color: #565674; letter-spacing: 1px;">Layanan Teknisi</li>
             <li>
                 <a href="{{ route('teknisi.servis') }}" class="{{ request()->is('teknisi/servis') || request()->is('teknisi/semua-servis') ? 'active' : '' }}">
@@ -58,12 +59,14 @@
             </li>
         @endif
 
-        <li class="px-4 mt-4 mb-2 text-uppercase fw-bold" style="font-size: 0.7rem; color: #565674; letter-spacing: 1px;">Belanja</li>
-        <li>
-            <a href="{{ route('pelanggan.katalog') }}" class="{{ request()->is('katalog*') ? 'active' : '' }}">
-                <i class="bi bi-shop"></i> Katalog Produk
-            </a>
-        </li>
+        @if(Auth::user()->peran != 'teknisi')
+            <li class="px-4 mt-4 mb-2 text-uppercase fw-bold" style="font-size: 0.7rem; color: #565674; letter-spacing: 1px;">Belanja</li>
+            <li>
+                <a href="{{ route('pelanggan.katalog') }}" class="{{ request()->is('katalog*') ? 'active' : '' }}">
+                    <i class="bi bi-shop"></i> Katalog Produk
+                </a>
+            </li>
+        @endif
 
         @if(Auth::user()->peran == 'pelanggan')
             <li>

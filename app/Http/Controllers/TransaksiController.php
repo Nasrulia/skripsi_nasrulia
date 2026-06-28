@@ -73,4 +73,74 @@ class TransaksiController extends Controller
 
         return $pdf->stream('Invoice_' . $transaksi->kode_transaksi . '.pdf');
     }
+
+    public function updateResi(Request $request, $id)
+    {
+        $request->validate([
+            'no_resi' => 'required|string|max:100',
+        ]);
+
+        $transaksi = Transaksi::with('ekspedisi')->findOrFail($id);
+        $transaksi->update([
+            'no_resi' => $request->no_resi,
+            'status_pengiriman' => 'dikirim',
+        ]);
+
+        // Kirim notifikasi WA ke pelanggan tentang update nomor resi
+        try {
+            $user = $transaksi->user ?? \App\Models\User::find($transaksi->user_id);
+            if ($user && !empty($user->no_whatsapp)) {
+                $ekspedisiNama = $transaksi->ekspedisi->nama_ekspedisi ?? 'ekspedisi pilihan';
+                $message = "*NUSANTARA JAYA KOMPUTER*\n";
+                $message .= "-----------------------\n";
+                $message .= "Halo *{$transaksi->nama_pelanggan}*,\n\n";
+                $message .= "Pesanan Anda dengan kode *{$transaksi->kode_transaksi}* telah dikirim melalui *$ekspedisiNama*.\n";
+                $message .= "🚚 Nomor Resi: *{$request->no_resi}*\n\n";
+                $message .= "Silakan pantau status pengiriman pada dashboard Anda.\n";
+                $message .= "Terima kasih telah berbelanja di NJK!\n";
+                $message .= "-----------------------\n";
+                $message .= "Nusantara Jaya Komputer";
+                
+                $this->wa->send($user->no_whatsapp, $message);
+            }
+        } catch (\Exception $e) {
+            // Abaikan error WA
+        }
+
+        return redirect()->back()->with('success', 'Nomor resi untuk transaksi ' . $transaksi->kode_transaksi . ' berhasil disimpan!');
+    }
+
+    public function konfirmasiDiterima($id)
+    {
+        $transaksi = Transaksi::where('user_id', Auth::id())->findOrFail($id);
+
+        if ($transaksi->metode_pengambilan !== 'diantar') {
+            return redirect()->back()->with('error', 'Transaksi ini tidak menggunakan metode pengiriman.');
+        }
+
+        $transaksi->update([
+            'status_pengiriman' => 'diterima',
+        ]);
+
+        // Kirim notifikasi WA ke admin bahwa barang sudah diterima pelanggan
+        try {
+            $nomor_admin = config('whatsapp.nomor_admin');
+            if (!empty($nomor_admin)) {
+                $message = "*NUSANTARA JAYA KOMPUTER - INFO PENERIMAAN*\n";
+                $message .= "-----------------------\n";
+                $message .= "Halo Admin,\n\n";
+                $message .= "Pesanan dengan kode *{$transaksi->kode_transaksi}* telah diterima oleh pelanggan *{$transaksi->nama_pelanggan}*.\n";
+                $message .= "🚚 Status Pengiriman: *Diterima / Sampai di Tujuan*\n\n";
+                $message .= "Terima kasih!\n";
+                $message .= "-----------------------\n";
+                $message .= "Nusantara Jaya Komputer";
+
+                $this->wa->send($nomor_admin, $message);
+            }
+        } catch (\Exception $e) {
+            // Abaikan error WA
+        }
+
+        return redirect()->back()->with('success', 'Terima kasih! Konfirmasi pesanan diterima berhasil disimpan.');
+    }
 }

@@ -35,9 +35,9 @@
 </head>
 <body>
     <div class="header">
-        <h1 class="toko-nama">NUSANTARA JAYA KOMPUTER</h1>
+        <h1 class="toko-nama">NUSANTARA JAYA COMPUTER</h1>
         <p class="toko-alamat">Pusat Layanan IT, Penjualan Komputer & Jasa Servis Profesional</p>
-        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | Telp: 0812-3456-7890 | Email: admin@njk.com</p>
+        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | Telp: 0851-8239-2525 / 0852-8239-2526 | Email: admin@njk.com</p>
     </div>
 
     <div class="judul-invoice">INVOICE / NOTA RESMI</div>
@@ -128,9 +128,9 @@
             @foreach($transaksi->servisDetail as $sd)
                 <tr>
                     <td class="text-center">{{ $no++ }}</td>
-                    <td>{{ $sd->jasaServis->nama_jasa ?? '-' }}</td>
+                    <td>{{ $sd->jasaServis->nama_jasa ?? $sd->nama_barang ?? 'Custom Servis' }}</td>
                     <td>{{ $sd->keluhan }}</td>
-                    <td class="text-right">Rp {{ number_format($sd->jasaServis->biaya_jasa ?? 0, 0, ',', '.') }}</td>
+                    <td class="text-right">Rp {{ number_format($sd->jasaServis->biaya_jasa ?? $sd->estimasi_biaya ?? 0, 0, ',', '.') }}</td>
                 </tr>
             @endforeach
         </tbody>

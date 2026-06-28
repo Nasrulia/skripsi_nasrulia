@@ -177,7 +177,34 @@
                     <div class="alert alert-info border-0 mt-3 mb-0 rounded-3">
                         <small class="fw-bold d-block"><i class="bi bi-truck me-1"></i> Informasi Pengiriman:</small>
                         <small class="text-dark">Ekspedisi: {{ $t->ekspedisi->nama_ekspedisi ?? '-' }} | Jarak: {{ $t->jarak_km ?? '-' }} km | Ongkir: Rp {{ number_format($t->ongkir, 0, ',', '.') }}</small>
-                        <small class="text-dark d-block">Alamat: {{ $t->alamat_pengiriman }}</small>
+                        <small class="text-dark d-block mb-1">Alamat: {{ $t->alamat_pengiriman }}</small>
+                        @if($t->no_resi)
+                        <small class="text-success d-block fw-bold mt-1"><i class="bi bi-tag-fill me-1"></i> Nomor Resi: {{ $t->no_resi }}</small>
+                        @endif
+                        @if($t->status_pengiriman)
+                        <small class="text-secondary d-block fw-bold mt-1"><i class="bi bi-info-circle-fill me-1"></i> Status Pengiriman: 
+                            @if($t->status_pengiriman == 'diproses')
+                                <span class="badge bg-warning text-dark px-2 py-1 rounded-pill">Diproses</span>
+                            @elseif($t->status_pengiriman == 'dikirim')
+                                <span class="badge bg-primary px-2 py-1 rounded-pill">Dikirim</span>
+                            @elseif($t->status_pengiriman == 'diterima')
+                                <span class="badge bg-success px-2 py-1 rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Diterima (Selesai)</span>
+                            @endif
+                        </small>
+                        @endif
+                    </div>
+
+                    <div class="card border-0 bg-light mt-3 p-3 rounded-3">
+                        <form action="{{ route('transaksi.update-resi', $t->id) }}" method="POST">
+                            @csrf
+                            <label class="form-label fw-bold small text-dark"><i class="bi bi-pencil-square me-1"></i> {{ $t->no_resi ? 'Update' : 'Input' }} Nomor Resi Pengiriman</label>
+                            <div class="input-group">
+                                <input type="text" name="no_resi" class="form-control form-control-sm" placeholder="Contoh: REG123456789" value="{{ $t->no_resi }}" required>
+                                <button type="submit" class="btn btn-sm btn-primary px-3">
+                                    <i class="bi bi-save me-1"></i> Simpan
+                                </button>
+                            </div>
+                        </form>
                     </div>
                     @elseif($t->metode_pengambilan == 'diambil')
                     <div class="alert alert-success border-0 mt-3 mb-0 rounded-3">

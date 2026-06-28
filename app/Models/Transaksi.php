@@ -19,6 +19,7 @@ class Transaksi extends Model
         'nama_pelanggan',
         'tipe',
         'total_bayar',
+        'metode_pembayaran',
         'status',
         'metode_pengambilan',
         'ekspedisi_id',
@@ -26,6 +27,8 @@ class Transaksi extends Model
         'ongkir',
         'alamat_pengiriman',
         'bukti_bayar',
+        'no_resi',
+        'status_pengiriman',
     ];
 
     public function detail(): HasMany

@@ -27,12 +27,32 @@ class KatalogController extends Controller
         if ($request->kategori) {
             $query->where('kategori_id', $request->kategori);
         }
-        if ($request->search) {
-            $query->where('nama_produk', 'like', '%' . $request->search . '%');
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_produk', 'like', '%' . $search . '%')
+                  ->orWhere('merk', 'like', '%' . $search . '%')
+                  ->orWhereHas('kategori', function ($catQuery) use ($search) {
+                      $catQuery->where('nama_kategori', 'like', '%' . $search . '%');
+                  });
+            });
         }
         $produk = $query->latest()->get();
         $kategori = Kategori::all();
-        return view('pelanggan.katalog', compact('produk', 'kategori'));
+
+        // Get top 4 best-selling products based on quantity sold in 'Lunas' transactions
+        $bestSellers = Produk::with('kategori')
+            ->withSum(['detail as total_terjual' => function ($query) {
+                $query->whereHas('transaksi', function ($q) {
+                    $q->where('status', 'Lunas');
+                });
+            }], 'jumlah')
+            ->having('total_terjual', '>', 0)
+            ->orderByDesc('total_terjual')
+            ->limit(4)
+            ->get();
+
+        return view('pelanggan.katalog', compact('produk', 'kategori', 'bestSellers'));
     }
 
     public function tambahKeKeranjang($id)
@@ -108,6 +128,7 @@ class KatalogController extends Controller
             'jarak_km' => $request->metode_pengambilan == 'diantar' ? $request->jarak_km : null,
             'ongkir' => $ongkir,
             'alamat_pengiriman' => $request->metode_pengambilan == 'diantar' ? $request->alamat_pengiriman : null,
+            'status_pengiriman' => $request->metode_pengambilan == 'diantar' ? 'diproses' : null,
         ]);
 
         foreach ($keranjang as $id => $details) {

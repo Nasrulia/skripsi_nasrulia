@@ -27,8 +27,8 @@
 </head>
 <body>
     <div class="header">
-        <h1 class="toko-nama">NUSANTARA JAYA KOMPUTER</h1>
-        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | email: admin@njk.com | Telp: 0812-3456-7890</p>
+        <h1 class="toko-nama">NUSANTARA JAYA COMPUTER</h1>
+        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | email: admin@njk.com | Telp: 0851-8239-2525 / 0852-8239-2526</p>
     </div>
     <div class="judul-laporan">{{ $judul }}</div>
     <div class="info">Tanggal Cetak: {{ $waktu_cetak }} | Dicetak Oleh: Administrator</div>
@@ -78,12 +78,13 @@
         <thead>
             <tr>
                 <th width="5%">No</th>
-                <th width="15%">Kode TRX</th>
-                <th width="15%">Nama Pelanggan</th>
-                <th width="20%">Jenis Servis</th>
-                <th width="25%">Keluhan</th>
+                <th width="12%">Kode TRX</th>
+                <th width="13%">Nama Pelanggan</th>
+                <th width="15%">Jenis Servis</th>
+                <th width="20%">Keluhan</th>
                 <th width="10%">Status</th>
-                <th width="10%">Tgl Masuk</th>
+                <th width="12%">Tgl Masuk</th>
+                <th width="13%">Penerima</th>
             </tr>
         </thead>
         <tbody>
@@ -93,13 +94,14 @@
                     <td class="text-center">{{ $no++ }}</td>
                     <td>{{ $s->transaksi->kode_transaksi ?? '-' }}</td>
                     <td>{{ $s->transaksi->nama_pelanggan ?? '-' }}</td>
-                    <td>{{ $s->jasaServis->nama_jasa ?? '-' }}</td>
+                    <td>{{ $s->jasaServis->nama_jasa ?? $s->nama_barang ?? 'Custom Servis' }}</td>
                     <td>{{ $s->keluhan }}</td>
                     <td class="text-center fw-bold">{{ strtoupper($s->status) }}</td>
                     <td class="text-center">{{ \Carbon\Carbon::parse($s->created_at)->format('d/m/Y') }}</td>
+                    <td>{{ $s->penerima ?? '-' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="text-center">Belum ada data servis.</td></tr>
+                <tr><td colspan="8" class="text-center">Belum ada data servis.</td></tr>
             @endforelse
         </tbody>
     </table>

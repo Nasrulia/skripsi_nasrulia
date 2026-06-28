@@ -1,3 +1,6 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <x-app-layout>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -93,11 +96,22 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Jarak (km)</label>
-                            <input type="number" name="jarak_km" id="jarakKm" class="form-control form-control-lg" placeholder="Contoh: 5" min="0" step="0.1" oninput="hitungOngkir()">
+                            <input type="number" name="jarak_km" id="jarakKm" class="form-control form-control-lg bg-light" placeholder="Jarak dihitung otomatis dari peta..." min="0" step="0.01" readonly required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold text-primary"><i class="bi bi-map-fill me-1"></i> Tentukan Lokasi Pengiriman di Peta</label>
+                            <div class="input-group mb-2">
+                                <input type="text" id="alamatSearch" class="form-control" placeholder="Cari jalan, kelurahan, atau daerah di Banjarmasin...">
+                                <button type="button" class="btn btn-primary" onclick="cariAlamat()">
+                                    <i class="bi bi-search"></i> Cari
+                                </button>
+                            </div>
+                            <div id="map" class="rounded border shadow-sm mb-2" style="height: 300px; z-index: 1;"></div>
+                            <small class="text-muted"><i class="bi bi-info-circle-fill me-1"></i> Geser penanda merah ke lokasi Anda. Jarak & ongkir akan dihitung otomatis.</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Alamat Pengiriman</label>
-                            <textarea name="alamat_pengiriman" class="form-control" rows="3" placeholder="Masukkan alamat lengkap..."></textarea>
+                            <textarea name="alamat_pengiriman" id="alamatPengiriman" class="form-control" rows="3" placeholder="Masukkan alamat lengkap detail (RT/RW, No. Rumah)..." required></textarea>
                         </div>
                     </div>
 
@@ -135,6 +149,11 @@
     </div>
 
     <script>
+    var map;
+    var markerPelanggan;
+    // Koordinat Toko: Nusantara Jaya Komputer Banjarmasin
+    const koordinatToko = [-3.3224, 114.5946];
+
     function togglePengiriman() {
         var metode = document.querySelector('input[name="metode_pengambilan"]:checked').value;
         var formPengiriman = document.getElementById('formPengiriman');
@@ -142,12 +161,125 @@
         if (metode === 'diantar') {
             formPengiriman.style.display = 'block';
             ongkirRow.style.display = 'flex !important';
+            setTimeout(function() {
+                initMap();
+            }, 200);
         } else {
             formPengiriman.style.display = 'none';
             ongkirRow.style.display = 'none !important';
             document.getElementById('ongkirText').innerText = 'Rp 0';
             hitungTotal();
         }
+    }
+
+    function initMap() {
+        if (map) {
+            map.invalidateSize();
+            return;
+        }
+
+        // Setup Leaflet Map
+        map = L.map('map').setView(koordinatToko, 14);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Marker Toko (Blue)
+        L.marker(koordinatToko, {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map)
+        .bindPopup("<b>Nusantara Jaya Komputer</b><br>Jalan Kamp Melayu No. 88, Banjarmasin")
+        .openPopup();
+
+        // Marker Pelanggan (Red, Draggable)
+        markerPelanggan = L.marker(koordinatToko, {
+            draggable: true,
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map)
+        .bindPopup("<b>Lokasi Pengiriman Anda</b><br>Geser ke alamat rumah Anda.")
+        .openPopup();
+
+        markerPelanggan.on('dragend', function(e) {
+            updateJarakDanAlamat();
+        });
+
+        map.on('click', function(e) {
+            markerPelanggan.setLatLng(e.latlng);
+            updateJarakDanAlamat();
+        });
+    }
+
+    function updateJarakDanAlamat() {
+        var pos = markerPelanggan.getLatLng();
+        var jarak = getDistanceFromLatLonInKm(koordinatToko[0], koordinatToko[1], pos.lat, pos.lng);
+        document.getElementById('jarakKm').value = jarak.toFixed(2);
+
+        // Reverse Geocoding Nominatim
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.lat}&lon=${pos.lng}&zoom=18&addressdetails=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.display_name) {
+                    document.getElementById('alamatPengiriman').value = data.display_name;
+                }
+            })
+            .catch(err => console.log(err));
+
+        hitungOngkir();
+    }
+
+    function cariAlamat() {
+        var query = document.getElementById('alamatSearch').value;
+        if (!query) return;
+
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' Banjarmasin')}&limit=1`)
+            .then(response => response.json())
+            .then(results => {
+                if (results && results.length > 0) {
+                    var lat = parseFloat(results[0].lat);
+                    var lon = parseFloat(results[0].lon);
+                    map.setView([lat, lon], 16);
+                    markerPelanggan.setLatLng([lat, lon]);
+                    updateJarakDanAlamat();
+                } else {
+                    alert('Lokasi tidak ditemukan. Coba masukkan nama jalan/kelurahan yang lebih detail.');
+                }
+            })
+            .catch(err => {
+                console.log(err);
+                alert('Pencarian gagal. Periksa koneksi internet Anda.');
+            });
+    }
+
+    function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+        var R = 6371; // Radius bumi (km)
+        var dLat = deg2rad(lat2 - lat1);
+        var dLon = deg2rad(lon2 - lon1);
+        var a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        var d = R * c; 
+        return d;
+    }
+
+    function deg2rad(deg) {
+        return deg * (Math.PI / 180);
     }
 
     function hitungOngkir() {
@@ -159,8 +291,8 @@
             var ongkirPerKm = parseFloat(select.options[select.selectedIndex].getAttribute('data-ongkir')) || 0;
             ongkir = ongkirPerKm * jarak;
         }
-        document.getElementById('ongkirText').innerText = 'Rp ' + ongkir.toLocaleString('id-ID');
-        document.getElementById('totalBayarText').innerText = 'Rp ' + (subtotal + ongkir).toLocaleString('id-ID');
+        document.getElementById('ongkirText').innerText = 'Rp ' + Math.round(ongkir).toLocaleString('id-ID');
+        document.getElementById('totalBayarText').innerText = 'Rp ' + Math.round(subtotal + ongkir).toLocaleString('id-ID');
     }
 
     function hitungTotal() {

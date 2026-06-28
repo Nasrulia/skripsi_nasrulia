@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\AturanChatbot;
 use App\Models\Produk;
-use App\Models\JasaServis;
 use App\Models\ChatbotLog;
 use Illuminate\Support\Facades\Auth;
 
@@ -72,19 +71,15 @@ class ChatbotController extends Controller
                     ->get();
 
                 $rekomendasi_produk = $rekomendasi_produk->merge($cari_produk);
-
-                $cari_jasa = JasaServis::where('nama_jasa', 'LIKE', '%' . $kata . '%')->get();
-                $rekomendasi_jasa = $rekomendasi_jasa->merge($cari_jasa);
             }
         }
 
         $hasil_produk = $rekomendasi_produk->unique('id')->values();
         $hasil_jasa = $rekomendasi_jasa->unique('id')->values();
 
-        if (!$aturan_ditemukan && ($hasil_produk->count() > 0 || $hasil_jasa->count() > 0)) {
+        if (!$aturan_ditemukan && ($hasil_produk->count() > 0)) {
             $jawaban_bot = "Berikut adalah beberapa produk atau layanan terkait yang berhasil saya temukan untuk Anda:";
             if ($hasil_produk->count() > 0) $kategori_pertanyaan = 'produk';
-            if ($hasil_jasa->count() > 0) $kategori_pertanyaan = 'jasa';
         }
 
         // --- Simpan Log Chatbot ---

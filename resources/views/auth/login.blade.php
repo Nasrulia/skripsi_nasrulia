@@ -52,6 +52,12 @@
                             <span class="text-muted small">Belum punya akun?</span>
                             <a href="{{ route('register') }}" class="text-decoration-none small fw-semibold">Daftar disini</a>
                         </div>
+
+                        <div class="text-center mt-3 pt-3 border-top">
+                            <a href="{{ route('cek-servis.public') }}" class="btn btn-outline-success w-100 rounded-3 fw-semibold py-2">
+                                <i class="bi bi-search me-2"></i> Lacak Status Servis Anda (Tanpa Login)
+                            </a>
+                        </div>
                     </form>
 
                 </div>

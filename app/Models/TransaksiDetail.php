@@ -31,4 +31,9 @@ class TransaksiDetail extends Model
     {
         return $this->belongsTo(JasaServis::class, 'jasa_id');
     }
+
+    public function transaksi()
+    {
+        return $this->belongsTo(Transaksi::class, 'transaksi_id');
+    }
 }

@@ -26,9 +26,9 @@
 <body>
 
     <div class="header">
-        <h1 class="toko-nama">NUSANTARA JAYA KOMPUTER</h1>
+        <h1 class="toko-nama">NUSANTARA JAYA COMPUTER</h1>
         <p class="toko-alamat">Pusat Layanan IT, Penjualan Komputer, dan Jasa Servis Profesional<br>
-        Banjarmasin, Kalimantan Selatan | Email: admin@njk.com | Telp: 0812-3456-7890</p>
+        Banjarmasin, Kalimantan Selatan | Email: admin@njk.com | Telp: 0851-8239-2525 / 0852-8239-2526</p>
     </div>
 
     <div class="judul-laporan">{{ $judul }}</div>

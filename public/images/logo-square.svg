@@ -1,11 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1a1a27"/>
-      <stop offset="100%" stop-color="#2b2b40"/>
-    </linearGradient>
-  </defs>
-  <circle cx="50" cy="50" r="48" fill="url(#bg)" stroke="#0d6efd" stroke-width="2"/>
-  <text x="50" y="45" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="bold" fill="#0d6efd" text-anchor="middle">N</text>
-  <text x="50" y="65" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold" fill="#fff" text-anchor="middle">JK</text>
+  <circle cx="50" cy="50" r="48" fill="#0084FF" />
+  <circle cx="50" cy="50" r="42" fill="none" stroke="#FFFFFF" stroke-width="2.5" />
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Stylized N & J connected -->
+    <path d="M 26 62 L 26 38 L 38 62 L 38 38 L 47 38 L 47 58 C 47 63, 42 63, 42 63" stroke-width="5" />
+    <!-- Stylized C with USB detail -->
+    <path d="M 70 43 C 67 37, 56 37, 56 50 C 56 63, 67 63, 70 57" stroke-width="5" />
+  </g>
+  <!-- USB details inside C -->
+  <rect x="60" y="47" width="6" height="6" fill="#FFFFFF" rx="1"/>
+  <rect x="62" y="49" width="2" height="2" fill="#0084FF"/>
 </svg>
