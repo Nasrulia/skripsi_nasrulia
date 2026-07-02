@@ -84,6 +84,32 @@
                         </div>
                     </div>
 
+                    <div id="formAmbilToko" style="display: block;">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Estimasi Tanggal & Waktu Pengambilan</label>
+                            <input type="datetime-local" name="estimasi_diambil" id="estimasiDiambil" class="form-control form-control-lg" min="{{ now()->format('Y-m-d\TH:i') }}" onchange="checkPickupRules()" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Metode Pembayaran</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="pembayaran_cash" value="cash" checked onchange="checkPickupRules()">
+                                    <label class="form-check-label fw-semibold" for="pembayaran_cash">
+                                        <i class="bi bi-cash me-1 text-success"></i> Cash di Toko
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="metode_pembayaran" id="pembayaran_transfer" value="transfer" onchange="checkPickupRules()">
+                                    <label class="form-check-label fw-semibold" for="pembayaran_transfer">
+                                        <i class="bi bi-credit-card me-1 text-primary"></i> Transfer Bank
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="pickupNotice" class="alert alert-info py-2 px-3 small mt-2 mb-0 border-0 rounded-3" style="display: none;"></div>
+                        </div>
+                    </div>
+
                     <div id="formPengiriman" style="display: none;">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Pilih Ekspedisi</label>
@@ -96,7 +122,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Jarak (km)</label>
-                            <input type="number" name="jarak_km" id="jarakKm" class="form-control form-control-lg bg-light" placeholder="Jarak dihitung otomatis dari peta..." min="0" step="0.01" readonly required>
+                            <input type="number" name="jarak_km" id="jarakKm" class="form-control form-control-lg bg-light" placeholder="Jarak dihitung otomatis dari peta..." min="0" step="0.01" readonly>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold text-primary"><i class="bi bi-map-fill me-1"></i> Tentukan Lokasi Pengiriman di Peta</label>
@@ -111,7 +137,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Alamat Pengiriman</label>
-                            <textarea name="alamat_pengiriman" id="alamatPengiriman" class="form-control" rows="3" placeholder="Masukkan alamat lengkap detail (RT/RW, No. Rumah)..." required></textarea>
+                            <textarea name="alamat_pengiriman" id="alamatPengiriman" class="form-control" rows="3" placeholder="Masukkan alamat lengkap detail (RT/RW, No. Rumah)..."></textarea>
                         </div>
                     </div>
 
@@ -151,24 +177,97 @@
     <script>
     var map;
     var markerPelanggan;
-    // Koordinat Toko: Nusantara Jaya Komputer Banjarmasin
+    // Koordinat Toko: Nusantara Jaya Computer Banjarmasin
     const koordinatToko = [-3.3224, 114.5946];
 
     function togglePengiriman() {
         var metode = document.querySelector('input[name="metode_pengambilan"]:checked').value;
         var formPengiriman = document.getElementById('formPengiriman');
+        var formAmbilToko = document.getElementById('formAmbilToko');
         var ongkirRow = document.getElementById('ongkirRow');
+        
         if (metode === 'diantar') {
             formPengiriman.style.display = 'block';
+            formAmbilToko.style.display = 'none';
             ongkirRow.style.display = 'flex !important';
+            document.getElementById('estimasiDiambil').required = false;
+            document.getElementById('alamatPengiriman').required = true;
+            document.getElementById('jarakKm').required = true;
             setTimeout(function() {
                 initMap();
             }, 200);
         } else {
             formPengiriman.style.display = 'none';
+            formAmbilToko.style.display = 'block';
             ongkirRow.style.display = 'none !important';
+            document.getElementById('estimasiDiambil').required = true;
+            document.getElementById('alamatPengiriman').required = false;
+            document.getElementById('jarakKm').required = false;
             document.getElementById('ongkirText').innerText = 'Rp 0';
             hitungTotal();
+        }
+        checkPickupRules();
+    }
+
+    function checkPickupRules() {
+        var metode = document.querySelector('input[name="metode_pengambilan"]:checked').value;
+        var pickupNotice = document.getElementById('pickupNotice');
+        var estimasiInput = document.getElementById('estimasiDiambil');
+        var cashRadio = document.getElementById('pembayaran_cash');
+        var transferRadio = document.getElementById('pembayaran_transfer');
+        
+        if (metode !== 'diambil') {
+            pickupNotice.style.display = 'none';
+            return;
+        }
+        
+        var total = {{ $subtotal }};
+        var dateVal = estimasiInput.value;
+        
+        if (!dateVal) {
+            pickupNotice.style.display = 'none';
+            return;
+        }
+        
+        var estimasi = new Date(dateVal);
+        var now = new Date();
+        var diffTime = estimasi - now;
+        var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (total < 500000) {
+            // Aksesoris < 500rb
+            if (diffDays > 3) {
+                pickupNotice.style.display = 'block';
+                pickupNotice.className = 'alert alert-danger py-2 px-3 small mt-2 mb-0 border-0 rounded-3';
+                pickupNotice.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-1"></i> Pesanan di bawah Rp 500.000 tidak bisa diambil lebih dari 3 hari. Silakan pilih tanggal lain.';
+                estimasiInput.value = '';
+            } else {
+                pickupNotice.style.display = 'block';
+                pickupNotice.className = 'alert alert-info py-2 px-3 small mt-2 mb-0 border-0 rounded-3';
+                pickupNotice.innerHTML = '<i class="bi bi-info-circle-fill me-1"></i> Pengambilan dalam 3 hari. Tanpa DP.';
+            }
+        } else {
+            // >= 500rb
+            if (diffDays > 7) {
+                pickupNotice.style.display = 'block';
+                pickupNotice.className = 'alert alert-warning py-2 px-3 small mt-2 mb-0 border-0 rounded-3';
+                
+                var dpAmountText = "";
+                if (total < 2000000) {
+                    dpAmountText = "Rp 200.000 (Flat)";
+                } else {
+                    dpAmountText = "Rp " + Math.round(total * 0.2).toLocaleString('id-ID') + " (20%)";
+                }
+                
+                pickupNotice.innerHTML = '<i class="bi bi-exclamation-circle-fill me-1"></i> Pengambilan lebih dari 1 minggu. <strong>Wajib melakukan DP sebesar ' + dpAmountText + ' via Transfer Bank</strong>.';
+                
+                // Force transfer payment
+                cashRadio.disabled = true;
+                transferRadio.checked = true;
+            } else {
+                pickupNotice.style.display = 'none';
+                cashRadio.disabled = false;
+            }
         }
     }
 
@@ -196,7 +295,7 @@
                 shadowSize: [41, 41]
             })
         }).addTo(map)
-        .bindPopup("<b>Nusantara Jaya Komputer</b><br>Jalan Kamp Melayu No. 88, Banjarmasin")
+        .bindPopup("<b>Nusantara Jaya Computer</b><br>Jalan Kamp Melayu No. 88, Banjarmasin")
         .openPopup();
 
         // Marker Pelanggan (Red, Draggable)

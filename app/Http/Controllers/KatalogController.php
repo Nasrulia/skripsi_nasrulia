@@ -116,6 +116,49 @@ class KatalogController extends Controller
             }
         }
 
+        $nominal_dp = 0;
+        $batas_waktu_pengambilan = null;
+        $metode_pembayaran = $request->metode_pembayaran ?? 'transfer';
+
+        if ($request->metode_pengambilan == 'diambil') {
+            $request->validate([
+                'estimasi_diambil' => 'required|date|after_or_equal:today',
+                'metode_pembayaran' => 'required|in:cash,transfer',
+            ]);
+
+            $estimasi = \Carbon\Carbon::parse($request->estimasi_diambil);
+            $now = \Carbon\Carbon::now();
+
+            if ($total < 500000) {
+                if ($estimasi->gt($now->copy()->addDays(3))) {
+                    return redirect()->back()->withErrors([
+                        'estimasi_diambil' => 'Untuk pemesanan aksesoris di bawah Rp 500.000, estimasi pengambilan tidak boleh lebih dari 3 hari.'
+                    ])->withInput();
+                }
+            } else {
+                if ($estimasi->gt($now->copy()->addDays(7))) {
+                    if ($request->metode_pembayaran == 'cash') {
+                        return redirect()->back()->withErrors([
+                            'metode_pembayaran' => 'Untuk estimasi pengambilan lebih dari 1 minggu, Anda wajib melakukan DP via Transfer Bank.'
+                        ])->withInput();
+                    }
+                    
+                    // Hitung nominal DP
+                    if ($total < 2000000) {
+                        $nominal_dp = 200000;
+                    } else {
+                        $nominal_dp = $total * 0.20;
+                    }
+                }
+            }
+
+            $metode_pembayaran = $request->metode_pembayaran;
+
+            if ($metode_pembayaran == 'cash') {
+                $batas_waktu_pengambilan = $estimasi->copy()->addHours(24);
+            }
+        }
+
         $transaksi = Transaksi::create([
             'kode_transaksi' => 'TRX-' . time(),
             'user_id' => Auth::id(),
@@ -129,6 +172,10 @@ class KatalogController extends Controller
             'ongkir' => $ongkir,
             'alamat_pengiriman' => $request->metode_pengambilan == 'diantar' ? $request->alamat_pengiriman : null,
             'status_pengiriman' => $request->metode_pengambilan == 'diantar' ? 'diproses' : null,
+            'metode_pembayaran' => $metode_pembayaran,
+            'estimasi_diambil' => $request->metode_pengambilan == 'diambil' ? $request->estimasi_diambil : null,
+            'nominal_dp' => $nominal_dp,
+            'batas_waktu_pengambilan' => $batas_waktu_pengambilan,
         ]);
 
         foreach ($keranjang as $id => $details) {
@@ -161,12 +208,20 @@ class KatalogController extends Controller
         }
 
         session()->forget('keranjang');
+        
+        if ($request->metode_pengambilan == 'diambil' && $metode_pembayaran == 'cash') {
+            return redirect()->route('pesanan.saya')->with('success', 'Pesanan berhasil dibuat! Silakan ambil barang di toko dan tunjukkan Nota Sementara.');
+        }
+
         return redirect()->route('pembayaran.form', $transaksi->id)->with('success', 'Pesanan berhasil dibuat! Silakan lakukan pembayaran.');
     }
 
     public function formPembayaran($id)
     {
         $transaksi = Transaksi::with('detail.produk', 'ekspedisi')->findOrFail($id);
+        if ($transaksi->metode_pengambilan == 'diambil' && $transaksi->metode_pembayaran == 'cash') {
+            return redirect()->route('pesanan.saya')->with('info', 'Anda menggunakan metode pembayaran Cash di Toko. Silakan cetak/tunjukkan Nota Sementara Anda.');
+        }
         return view('pelanggan.pembayaran', compact('transaksi'));
     }
 

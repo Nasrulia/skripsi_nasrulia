@@ -34,6 +34,7 @@ class RegisteredUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'no_whatsapp' => ['nullable', 'string', 'max:20'],
+            'aktifkan_notifikasi' => ['nullable', 'boolean'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -41,6 +42,7 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'no_whatsapp' => $request->no_whatsapp,
+            'aktifkan_notifikasi' => $request->boolean('aktifkan_notifikasi', true),
             'password' => Hash::make($request->password),
         ]);
 

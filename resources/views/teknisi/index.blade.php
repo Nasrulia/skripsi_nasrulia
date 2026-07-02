@@ -15,10 +15,34 @@
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4">
-            <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+        @if(session('whatsapp_url'))
+            <div class="alert alert-success alert-dismissible fade show border-0 shadow rounded-4 p-4 mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center" style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border-left: 5px solid #28a745 !important;">
+                <div class="mb-3 mb-sm-0">
+                    <h5 class="alert-heading fw-bold text-success mb-1">
+                        <i class="bi bi-whatsapp me-2"></i> Status Servis Diperbarui ke Selesai!
+                    </h5>
+                    <p class="mb-0 text-dark opacity-75">Sistem mencoba membuka WhatsApp otomatis untuk mengirim pesan konfirmasi ke pelanggan. Jika tidak terbuka, silakan klik tombol di samping.</p>
+                </div>
+                <div>
+                    <a href="{{ session('whatsapp_url') }}" target="_blank" class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center">
+                        <i class="bi bi-send-fill me-2"></i> Hubungi WhatsApp Pelanggan
+                    </a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(function() {
+                        window.open("{{ session('whatsapp_url') }}", '_blank');
+                    }, 800);
+                });
+            </script>
+        @else
+            <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4">
+                <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
     @endif
 
     <ul class="nav nav-pills mb-4 border-bottom pb-3" id="pills-tab" role="tablist">
@@ -81,9 +105,51 @@
                                 <i class="bi bi-arrow-up-circle me-1"></i> Update Status
                             </button>
                             @endif
+                            
+                            @php
+                                $user = $s->transaksi->user ?? null;
+                                $phone = '';
+                                if ($user && !empty($user->no_whatsapp)) {
+                                    $phone = preg_replace('/[^0-9]/', '', $user->no_whatsapp);
+                                    if (strpos($phone, '0') === 0) {
+                                        $phone = '62' . substr($phone, 1);
+                                    } elseif (strpos($phone, '62') !== 0) {
+                                        $phone = '62' . $phone;
+                                    }
+                                }
+                            @endphp
+                            @if($phone)
+                                @php
+                                    $namaPelanggan = $s->transaksi->nama_pelanggan ?? ($user->name ?? 'Pelanggan');
+                                    $kodeTransaksi = $s->transaksi->kode_transaksi ?? '-';
+                                    $namaBarang = $s->nama_barang ?? 'Barang Servis';
+                                    
+                                    $message = "*NUSANTARA JAYA COMPUTER - NOTIFIKASI SERVIS*\n";
+                                    $message .= "-----------------------\n";
+                                    $message .= "Halo *$namaPelanggan*,\n\n";
+                                    $message .= "Update status servis barang Anda saat ini: *BARU MASUK*\n\n";
+                                    $message .= "📋 *Detail Servis*:\n";
+                                    $message .= "- Kode Servis: *$kodeTransaksi*\n";
+                                    $message .= "- Barang: *$namaBarang*\n";
+                                    $message .= "\nTerima kasih atas kepercayaan Anda kepada NJK!\n";
+                                    $message .= "-----------------------\n";
+                                    $message .= "Nusantara Jaya Computer";
+                                    
+                                    $waUrl = "https://wa.me/" . $phone . "?text=" . urlencode($message);
+                                @endphp
+                                <a href="{{ $waUrl }}" target="_blank" class="btn btn-sm btn-success w-100 rounded-3 fw-semibold mb-2">
+                                    <i class="bi bi-whatsapp me-1"></i> Hubungi WhatsApp
+                                </a>
+                            @endif
+
                             <a href="{{ route('teknisi.servis.tanda-terima', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100 rounded-3 fw-semibold">
                                 <i class="bi bi-file-earmark-pdf me-1"></i> Tanda Terima (PDF)
                             </a>
+                            @if($s->transaksi->status == 'Lunas')
+                            <a href="{{ route('teknisi.servis.nota', $s->id) }}" target="_blank" class="btn btn-sm btn-danger w-100 rounded-3 fw-semibold mt-2">
+                                <i class="bi bi-receipt me-1"></i> Nota Transaksi (PDF)
+                            </a>
+                            @endif
                     </div>
                 </div>
                 @empty
@@ -133,9 +199,55 @@
                             <button type="button" class="btn btn-outline-primary w-100 rounded-3 fw-semibold mb-2" data-bs-toggle="modal" data-bs-target="#modalUpdate{{ $s->id }}">
                                 <i class="bi bi-arrow-up-circle me-1"></i> Update Status
                             </button>
+                            
+                            @php
+                                $user = $s->transaksi->user ?? null;
+                                $phone = '';
+                                if ($user && !empty($user->no_whatsapp)) {
+                                    $phone = preg_replace('/[^0-9]/', '', $user->no_whatsapp);
+                                    if (strpos($phone, '0') === 0) {
+                                        $phone = '62' . substr($phone, 1);
+                                    } elseif (strpos($phone, '62') !== 0) {
+                                        $phone = '62' . $phone;
+                                    }
+                                }
+                            @endphp
+                            @if($phone)
+                                @php
+                                    $namaPelanggan = $s->transaksi->nama_pelanggan ?? ($user->name ?? 'Pelanggan');
+                                    $kodeTransaksi = $s->transaksi->kode_transaksi ?? '-';
+                                    $namaBarang = $s->nama_barang ?? 'Barang Servis';
+                                    $catatan = $s->catatan_teknisi;
+                                    
+                                    $message = "*NUSANTARA JAYA COMPUTER - NOTIFIKASI SERVIS*\n";
+                                    $message .= "-----------------------\n";
+                                    $message .= "Halo *$namaPelanggan*,\n\n";
+                                    $message .= "Update status servis barang Anda saat ini: *SEDANG DIPROSES*\n\n";
+                                    $message .= "📋 *Detail Servis*:\n";
+                                    $message .= "- Kode Servis: *$kodeTransaksi*\n";
+                                    $message .= "- Barang: *$namaBarang*\n";
+                                    if ($catatan) {
+                                        $message .= "- Catatan Perkembangan: *$catatan*\n";
+                                    }
+                                    $message .= "\nTerima kasih atas kepercayaan Anda kepada NJK!\n";
+                                    $message .= "-----------------------\n";
+                                    $message .= "Nusantara Jaya Computer";
+                                    
+                                    $waUrl = "https://wa.me/" . $phone . "?text=" . urlencode($message);
+                                @endphp
+                                <a href="{{ $waUrl }}" target="_blank" class="btn btn-sm btn-success w-100 rounded-3 fw-semibold mb-2">
+                                    <i class="bi bi-whatsapp me-1"></i> Hubungi WhatsApp
+                                </a>
+                            @endif
+
                             <a href="{{ route('teknisi.servis.tanda-terima', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100 rounded-3 fw-semibold">
                                 <i class="bi bi-file-earmark-pdf me-1"></i> Tanda Terima (PDF)
                             </a>
+                            @if($s->transaksi->status == 'Lunas')
+                            <a href="{{ route('teknisi.servis.nota', $s->id) }}" target="_blank" class="btn btn-sm btn-danger w-100 rounded-3 fw-semibold mt-2">
+                                <i class="bi bi-receipt me-1"></i> Nota Transaksi (PDF)
+                            </a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -202,9 +314,64 @@
                                 </button>
                             </form>
                             @endif
+                            @php
+                                $user = $s->transaksi->user ?? null;
+                                $phone = '';
+                                if ($user && !empty($user->no_whatsapp)) {
+                                    $phone = preg_replace('/[^0-9]/', '', $user->no_whatsapp);
+                                    if (strpos($phone, '0') === 0) {
+                                        $phone = '62' . substr($phone, 1);
+                                    } elseif (strpos($phone, '62') !== 0) {
+                                        $phone = '62' . $phone;
+                                    }
+                                }
+                            @endphp
+                            @if($phone)
+                                @php
+                                    $namaPelanggan = $s->transaksi->nama_pelanggan ?? ($user->name ?? 'Pelanggan');
+                                    $kodeTransaksi = $s->transaksi->kode_transaksi ?? '-';
+                                    $namaBarang = $s->nama_barang ?? 'Barang Servis';
+                                    $catatan = $s->catatan_teknisi;
+                                    
+                                    $statusLabel = [
+                                        'proses' => 'SEDANG DIPROSES',
+                                        'selesai' => 'SELESAI',
+                                        'diambil' => 'SUDAH DIAMBIL',
+                                        'garansi' => 'DALAM GARANSI',
+                                        'batal' => 'DIBATALKAN',
+                                    ];
+                                    $statusTxt = $statusLabel[$s->status] ?? strtoupper($s->status);
+                                    
+                                    $message = "*NUSANTARA JAYA COMPUTER - NOTIFIKASI SERVIS*\n";
+                                    $message .= "-----------------------\n";
+                                    $message .= "Halo *$namaPelanggan*,\n\n";
+                                    $message .= "Update status servis barang Anda saat ini: *$statusTxt*\n\n";
+                                    $message .= "📋 *Detail Servis*:\n";
+                                    $message .= "- Kode Servis: *$kodeTransaksi*\n";
+                                    $message .= "- Barang: *$namaBarang*\n";
+                                    if ($catatan) {
+                                        $message .= "- Catatan Akhir: *$catatan*\n";
+                                    }
+                                    $message .= "\nTerima kasih atas kepercayaan Anda kepada NJK!\n";
+                                    $message .= "-----------------------\n";
+                                    $message .= "Nusantara Jaya Computer";
+                                    
+                                    $waUrl = "https://wa.me/" . $phone . "?text=" . urlencode($message);
+                                @endphp
+                                <a href="{{ $waUrl }}" target="_blank" class="btn btn-sm btn-success w-100 rounded-3 fw-semibold mb-2">
+                                    <i class="bi bi-whatsapp me-1"></i> Hubungi WhatsApp
+                                </a>
+                            @endif
+
                             <a href="{{ route('teknisi.servis.tanda-terima', $s->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary w-100 rounded-3 fw-semibold">
                                 <i class="bi bi-file-earmark-pdf me-1"></i> Tanda Terima (PDF)
                             </a>
+
+                            @if($s->transaksi->status == 'Lunas' || in_array($s->status, ['selesai', 'diambil', 'garansi']))
+                            <a href="{{ route('teknisi.servis.nota', $s->id) }}" target="_blank" class="btn btn-sm btn-danger w-100 rounded-3 fw-semibold mt-2">
+                                <i class="bi bi-receipt me-1"></i> Nota Transaksi (PDF)
+                            </a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -333,7 +500,7 @@
                     <div class="modal-body p-4">
                         <div class="mb-3">
                             <label class="form-label fw-semibold text-muted small">Status Terkini</label>
-                            <select name="status" class="form-select form-select-lg" required>
+                            <select name="status" class="form-select form-select-lg status-select" data-id="{{ $s->id }}" required>
                                 <option value="proses" {{ $s->status == 'proses' ? 'selected' : '' }}>Proses (Sedang Dikerjakan)</option>
                                 <option value="selesai" {{ $s->status == 'selesai' ? 'selected' : '' }}>Selesai (Siap Diambil)</option>
                                 <option value="diambil" {{ $s->status == 'diambil' ? 'selected' : '' }}>Diambil (Sudah Diambil Pelanggan)</option>
@@ -351,8 +518,8 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-semibold text-muted small">Catatan Perkembangan</label>
-                            <textarea name="catatan_teknisi" class="form-control" rows="4" placeholder="Tulis catatan perkembangan servis agar pelanggan mengetahuinya..." required>{{ $s->catatan_teknisi }}</textarea>
+                            <label id="label-catatan-{{ $s->id }}" class="form-label fw-semibold text-muted small">Catatan Perkembangan</label>
+                            <textarea id="catatan-{{ $s->id }}" name="catatan_teknisi" class="form-control" rows="4" placeholder="Tulis catatan perkembangan servis agar pelanggan mengetahuinya..." required>{{ $s->catatan_teknisi }}</textarea>
                         </div>
                         @if(Auth::user()->peran == 'admin')
                         <div class="mb-3 border-top pt-3">
@@ -410,7 +577,7 @@
                     </div>
                     <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
                         <button type="button" class="btn btn-light rounded-3" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary rounded-3 px-4">Update Status</button>
+                        <button type="submit" id="btn-submit-{{ $s->id }}" class="btn btn-primary rounded-3 px-4 btn-update-status">Update Status</button>
                     </div>
                 </form>
             </div>
@@ -427,22 +594,66 @@
             const biayaInput = document.getElementById('estimasi_biaya');
 
             // Handling User Selector
-            userSelect.addEventListener('change', function () {
-                const selectedOption = userSelect.options[userSelect.selectedIndex];
-                if (selectedOption.value !== "") {
-                    namaInput.value = selectedOption.getAttribute('data-name');
-                    waInput.value = selectedOption.getAttribute('data-whatsapp') || '';
-                    namaInput.readOnly = true;
-                    waInput.readOnly = true;
-                } else {
-                    namaInput.value = '';
-                    waInput.value = '';
-                    namaInput.readOnly = false;
-                    waInput.readOnly = false;
+            if (userSelect) {
+                userSelect.addEventListener('change', function () {
+                    const selectedOption = userSelect.options[userSelect.selectedIndex];
+                    if (selectedOption.value !== "") {
+                        namaInput.value = selectedOption.getAttribute('data-name');
+                        waInput.value = selectedOption.getAttribute('data-whatsapp') || '';
+                        namaInput.readOnly = true;
+                        waInput.readOnly = true;
+                    } else {
+                        namaInput.value = '';
+                        waInput.value = '';
+                        namaInput.readOnly = false;
+                        waInput.readOnly = false;
+                    }
+                });
+            }
+
+            // Handling Status Select changes and button text/color toggle
+            const statusSelects = document.querySelectorAll('.status-select');
+            
+            function updateButtonText(selectEl) {
+                const serviceId = selectEl.getAttribute('data-id');
+                const submitBtn = document.getElementById(`btn-submit-${serviceId}`);
+                const labelCatatan = document.getElementById(`label-catatan-${serviceId}`);
+                const textareaCatatan = document.getElementById(`catatan-${serviceId}`);
+                
+                if (submitBtn) {
+                    if (selectEl.value === 'selesai') {
+                        submitBtn.innerHTML = '<i class="bi bi-whatsapp me-1"></i> Update + Kirim di WhatsApp';
+                        submitBtn.classList.remove('btn-primary');
+                        submitBtn.classList.add('btn-success');
+                        if (labelCatatan) {
+                            labelCatatan.innerHTML = 'Catatan Akhir / Pesan WhatsApp <span class="text-success small fw-bold">(Akan Dikirim ke Pelanggan)</span>';
+                        }
+                        if (textareaCatatan) {
+                            textareaCatatan.placeholder = 'Tulis catatan terakhir atau pesan WhatsApp untuk pelanggan...';
+                        }
+                    } else {
+                        submitBtn.innerHTML = 'Update Status';
+                        submitBtn.classList.remove('btn-success');
+                        submitBtn.classList.add('btn-primary');
+                        if (labelCatatan) {
+                            labelCatatan.innerHTML = 'Catatan Perkembangan';
+                        }
+                        if (textareaCatatan) {
+                            textareaCatatan.placeholder = 'Tulis catatan perkembangan servis agar pelanggan mengetahuinya...';
+                        }
+                    }
                 }
+            }
+
+            statusSelects.forEach(selectEl => {
+                // Initialize on load
+                updateButtonText(selectEl);
+                
+                // Add event listener for changes
+                selectEl.addEventListener('change', function () {
+                    updateButtonText(this);
+                });
             });
-
-
         });
     </script>
 </x-app-layout>

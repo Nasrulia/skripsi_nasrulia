@@ -47,7 +47,7 @@ class WhatsAppService
 
     public function sendTransaksiNotif(string $nomor, string $nama, string $kode, string $total, string $status): bool
     {
-        $message = "*NUSANTARA JAYA KOMPUTER*\n";
+        $message = "*NUSANTARA JAYA COMPUTER*\n";
         $message .= "-----------------------\n";
         $message .= "Halo *$nama*,\n\n";
         $message .= "Status pesanan Anda telah diperbarui:\n";
@@ -56,13 +56,13 @@ class WhatsAppService
         $message .= "✅ Status: *$status*\n\n";
         $message .= "Terima kasih telah berbelanja di NJK!\n";
         $message .= "-----------------------\n";
-        $message .= "Nusantara Jaya Komputer";
+        $message .= "Nusantara Jaya Computer";
         return $this->send($nomor, $message);
     }
 
     public function sendServisNotif(string $nomor, string $nama, string $kode, string $barang, string $status, string $catatan = null): bool
     {
-        $message = "*NUSANTARA JAYA KOMPUTER - NOTIFIKASI SERVIS*\n";
+        $message = "*NUSANTARA JAYA COMPUTER - NOTIFIKASI SERVIS*\n";
         $message .= "-----------------------\n";
         $message .= "Halo *$nama*,\n\n";
         $message .= "Status servis barang Anda telah diperbarui:\n";
@@ -74,7 +74,7 @@ class WhatsAppService
         }
         $message .= "\nTerima kasih atas kepercayaan Anda kepada NJK!\n";
         $message .= "-----------------------\n";
-        $message .= "Nusantara Jaya Komputer";
+        $message .= "Nusantara Jaya Computer";
         return $this->send($nomor, $message);
     }
 

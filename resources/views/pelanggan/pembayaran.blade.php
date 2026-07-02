@@ -13,11 +13,24 @@
 
                     <div class="alert alert-info border-0 rounded-3 d-flex align-items-center">
                         <i class="bi bi-info-circle-fill me-3 fs-5"></i>
-                        <small>Silakan transfer ke rekening BNI: <strong>1234567890</strong> a.n. <strong>Nusantara Jaya Komputer</strong> lalu upload bukti transfer di bawah.</small>
+                        <small>
+                            @if($transaksi->nominal_dp > 0)
+                                Silakan transfer **DP minimal Rp {{ number_format($transaksi->nominal_dp, 0, ',', '.') }}** ke rekening BNI: <strong>1234567890</strong> a.n. <strong>Nusantara Jaya Computer</strong> lalu upload bukti transfer di bawah. Sisa pembayaran dapat dilunasi saat pengambilan barang.
+                            @else
+                                Silakan transfer ke rekening BNI: <strong>1234567890</strong> a.n. <strong>Nusantara Jaya Computer</strong> lalu upload bukti transfer di bawah.
+                            @endif
+                        </small>
                     </div>
 
+                    @if($transaksi->nominal_dp > 0)
+                    <div class="d-flex justify-content-between py-3 border-bottom bg-light px-2 rounded-3 mb-2">
+                        <span class="text-muted fw-bold">Nominal DP Wajib:</span>
+                        <span class="fw-bold text-danger fs-5">Rp {{ number_format($transaksi->nominal_dp, 0, ',', '.') }}</span>
+                    </div>
+                    @endif
+
                     <div class="d-flex justify-content-between py-3 border-bottom">
-                        <span class="text-muted">Total yang harus dibayar:</span>
+                        <span class="text-muted">Total Belanja:</span>
                         <span class="fw-bold text-primary fs-5">Rp {{ number_format($transaksi->total_bayar, 0, ',', '.') }}</span>
                     </div>
 
@@ -35,6 +48,12 @@
                         <span class="text-muted">Metode:</span>
                         <span class="fw-bold">Ambil di Toko</span>
                     </div>
+                    @if($transaksi->estimasi_diambil)
+                    <div class="d-flex justify-content-between py-3 border-bottom">
+                        <span class="text-muted">Estimasi Ambil:</span>
+                        <span class="fw-bold text-dark"><i class="bi bi-clock me-1 text-primary"></i> {{ \Carbon\Carbon::parse($transaksi->estimasi_diambil)->format('d M Y H:i') }}</span>
+                    </div>
+                    @endif
                     @endif
 
                     @if($transaksi->bukti_bayar)

@@ -20,20 +20,20 @@
                 <div class="card-body p-4 p-md-5">
                     
                     <div class="text-center mb-4">
-                        <img src="{{ asset('images/logo-square.svg') }}" alt="Logo NJK" class="img-fluid rounded-circle shadow-sm mb-3" style="width: 80px; height: 80px; object-fit: cover;">
+                        <img src="{{ asset('images/logo.jpg') }}" alt="Logo NJK" class="img-fluid rounded-circle shadow-sm mb-3" style="width: 80px; height: 80px; object-fit: cover;">
                         <h4 class="fw-bold text-primary mb-1">Lacak Progres Servis Anda</h4>
-                        <p class="text-muted small">Nusantara Jaya Komputer</p>
+                        <p class="text-muted small">Nusantara Jaya Computer</p>
                     </div>
 
                     <form method="POST" action="{{ route('cek-servis.post') }}" class="mb-2">
                         @csrf
-                        <label for="no_whatsapp" class="form-label fw-semibold text-muted small">Masukkan Nomor WhatsApp Anda</label>
+                        <label for="kode_transaksi" class="form-label fw-semibold text-muted small">Masukkan Nomor Transaksi Anda</label>
                         <div class="input-group input-group-lg">
-                            <span class="input-group-text bg-light text-muted"><i class="bi bi-whatsapp"></i></span>
-                            <input type="text" name="no_whatsapp" id="no_whatsapp" class="form-control" placeholder="Contoh: 08123456789" value="{{ $no_whatsapp ?? old('no_whatsapp') }}" required>
+                            <span class="input-group-text bg-light text-muted"><i class="bi bi-receipt"></i></span>
+                            <input type="text" name="kode_transaksi" id="kode_transaksi" class="form-control" placeholder="Contoh: TRX-SRV-xxxxxxxxxx" value="{{ $kode_transaksi ?? old('kode_transaksi') }}" required>
                             <button type="submit" class="btn btn-primary fw-bold px-4">Cari</button>
                         </div>
-                        <small class="text-muted d-block mt-2">Gunakan nomor WhatsApp yang Anda berikan kepada teknisi saat mendaftarkan barang.</small>
+                        <small class="text-muted d-block mt-2">Gunakan nomor transaksi (kode transaksi) yang tertera di tanda terima servis Anda.</small>
                     </form>
 
                     <div class="text-center mt-3">
@@ -176,13 +176,21 @@
                                     @endif
                                 @endif
                             </div>
+
+                            @if($s->transaksi->status == 'Lunas' || in_array($s->status, ['selesai', 'diambil', 'garansi']))
+                                <div class="mt-3">
+                                    <a href="{{ route('cek-servis.nota', $s->id) }}" target="_blank" class="btn btn-outline-danger w-100 rounded-3 fw-bold">
+                                        <i class="bi bi-file-earmark-pdf-fill me-1"></i> Unduh Nota Transaksi (PDF)
+                                    </a>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 @empty
                     <div class="alert alert-warning border-0 rounded-4 shadow-sm p-4 text-center mt-3">
                         <i class="bi bi-info-circle fs-3 text-warning d-block mb-2"></i>
                         <h6 class="fw-bold mb-1">Data Servis Tidak Ditemukan</h6>
-                        <span class="text-muted small">Nomor WhatsApp <strong>{{ $no_whatsapp }}</strong> belum terdaftar dalam riwayat servis. Pastikan nomor yang dimasukkan sudah benar.</span>
+                        <span class="text-muted small">Nomor Transaksi <strong>{{ $kode_transaksi }}</strong> tidak ditemukan atau belum terdaftar dalam riwayat servis. Pastikan nomor transaksi yang dimasukkan sudah benar.</span>
                     </div>
                 @endforelse
             @endif

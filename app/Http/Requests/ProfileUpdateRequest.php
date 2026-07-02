@@ -26,6 +26,8 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
+            'no_whatsapp' => ['nullable', 'string', 'max:20'],
+            'aktifkan_notifikasi' => ['nullable', 'boolean'],
         ];
     }
 }

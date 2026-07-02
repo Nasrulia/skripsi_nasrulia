@@ -24,26 +24,44 @@
         .grand-total { font-size: 12pt; font-weight: bold; background-color: #e0e0e0; }
         .ttd-wrapper { width: 100%; margin-top: 30px; }
         .ttd-kiri { float: left; width: 45%; text-align: center; font-size: 9pt; }
-        .ttd-kanan { float: right; width: 45%; text-align: center; font-size: 9pt; }
-        .ttd-kosong { height: 60px; }
+        .ttd-kanan { float: right; width: 45%; text-align: center; font-size: 9pt; position: relative; }
+        .ttd-kosong { height: 50px; }
         .clearfix::after { content: ""; clear: both; display: table; }
-        .stempel { position: relative; }
-        .stempel-img { width: 80px; height: 80px; opacity: 0.8; margin-top: -10px; }
+        .stempel { position: absolute; top: 25px; left: 50%; margin-left: -40px; z-index: 1; }
+        .stempel-img { width: 80px; height: 80px; opacity: 0.55; }
         .footer { text-align: center; font-size: 7pt; margin-top: 20px; border-top: 1px solid #999; padding-top: 5px; color: #666; }
         .status-lunas { color: green; font-weight: bold; font-size: 14pt; text-align: center; border: 2px solid green; padding: 5px; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1 class="toko-nama">NUSANTARA JAYA COMPUTER</h1>
-        <p class="toko-alamat">Pusat Layanan IT, Penjualan Komputer & Jasa Servis Profesional</p>
-        <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | Telp: 0851-8239-2525 / 0852-8239-2526 | Email: admin@njk.com</p>
-    </div>
+    <table style="width: 100%; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 15px; border-collapse: collapse;">
+        <tr>
+            <td width="15%" style="text-align: center; vertical-align: middle; padding: 0;">
+                @php
+                    $logoImg = public_path('images/logo.jpg');
+                @endphp
+                @if(file_exists($logoImg))
+                    <img src="data:image/jpeg;base64,{{ base64_encode(file_get_contents($logoImg)) }}" alt="Logo" style="width: 70px; height: 70px; border-radius: 50%;">
+                @endif
+            </td>
+            <td width="85%" style="text-align: center; vertical-align: middle; padding: 0;">
+                <h1 class="toko-nama" style="font-size: 22pt; font-weight: bold; margin: 0; font-family: 'Times New Roman', Times, serif; letter-spacing: 1px;">CV NUSANTARA JAYA</h1>
+                <p style="font-size: 10.5pt; font-weight: bold; margin: 4px 0 2px 0; font-family: Arial, Helvetica, sans-serif;">JL.Pahlawan No.88 ( Kampung Melayu ) Banjarmasin</p>
+                <p style="font-size: 10.5pt; font-weight: bold; margin: 0; font-family: Arial, Helvetica, sans-serif;">HP/WA : 0851 8239 2525 / 0851 8239 2526</p>
+            </td>
+        </tr>
+    </table>
 
-    <div class="judul-invoice">INVOICE / NOTA RESMI</div>
-
-    @if($transaksi->status == 'Lunas')
-        <div class="status-lunas">SUDAH LUNAS</div>
+    @if($transaksi->status != 'Lunas' && $transaksi->metode_pengambilan == 'diambil' && $transaksi->metode_pembayaran == 'cash')
+        <div class="judul-invoice">NOTA SEMENTARA</div>
+        <div class="status-lunas" style="color: red; border-color: red;">BELUM LUNAS (BAYAR DI TOKO)</div>
+    @else
+        <div class="judul-invoice">INVOICE / NOTA RESMI</div>
+        @if($transaksi->status == 'Lunas')
+            <div class="status-lunas">SUDAH LUNAS</div>
+        @else
+            <div class="status-lunas" style="color: orange; border-color: orange;">PENDING (MENUNGGU KONFIRMASI)</div>
+        @endif
     @endif
 
     <table class="info-transaksi">
@@ -61,7 +79,7 @@
         </tr>
         <tr>
             <td><strong>Kasir</strong></td>
-            <td>: {{ $kasir->name }}</td>
+            <td>: {{ $kasir->name ?? 'Admin' }}</td>
             <td><strong>Status</strong></td>
             <td>: {{ strtoupper($transaksi->status) }}</td>
         </tr>
@@ -69,8 +87,21 @@
         <tr>
             <td><strong>Pengambilan</strong></td>
             <td>: {{ $transaksi->metode_pengambilan == 'diantar' ? 'DIKIRIM' : 'AMBIL DI TOKO' }}</td>
+            <td><strong>Metode Bayar</strong></td>
+            <td>: {{ $transaksi->metode_pembayaran == 'cash' ? 'CASH DI TOKO' : 'TRANSFER BANK' }}</td>
+        </tr>
+        @endif
+        @if($transaksi->metode_pengambilan == 'diambil')
+        <tr>
+            <td><strong>Estimasi Ambil</strong></td>
+            <td>: {{ $transaksi->estimasi_diambil ? \Carbon\Carbon::parse($transaksi->estimasi_diambil)->format('d/m/Y H:i') : '-' }}</td>
+            @if($transaksi->metode_pembayaran == 'cash' && $transaksi->batas_waktu_pengambilan)
+            <td><strong>Batas Waktu</strong></td>
+            <td style="color: red; font-weight: bold;">: {{ \Carbon\Carbon::parse($transaksi->batas_waktu_pengambilan)->format('d/m/Y H:i') }}</td>
+            @else
             <td></td>
             <td></td>
+            @endif
         </tr>
         @endif
         @if($transaksi->metode_pengambilan == 'diantar')
@@ -149,25 +180,40 @@
         </tr>
         @endif
         <tr>
-            <td width="75%" class="text-right fw-bold">TOTAL BAYAR :</td>
+            <td width="75%" class="text-right fw-bold">TOTAL BELANJA :</td>
             <td width="25%" class="text-right fw-bold grand-total">Rp {{ number_format($transaksi->total_bayar, 0, ',', '.') }}</td>
         </tr>
+        @if($transaksi->nominal_dp > 0)
+        <tr>
+            <td width="75%" class="text-right fw-bold">DP DIBAYAR (TRANSFER) :</td>
+            <td width="25%" class="text-right fw-bold" style="color: green;">Rp {{ number_format($transaksi->nominal_dp, 0, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td width="75%" class="text-right fw-bold">SISA PELUNASAN (DI TOKO) :</td>
+            <td width="25%" class="text-right fw-bold" style="color: red;">Rp {{ number_format($transaksi->total_bayar - $transaksi->nominal_dp, 0, ',', '.') }}</td>
+        </tr>
+        @endif
         <tr>
             <td class="text-right"><em>Terbilang: #{{ ucwords(terbilang($transaksi->total_bayar)) }} Rupiah #</em></td>
             <td></td>
         </tr>
     </table>
 
+    @php
+        if ($transaksi->tipe == 'servis') {
+            $teknisi = $transaksi->servisDetail->first()?->teknisi;
+            $ttdName = $teknisi ? $teknisi->name : 'Teknisi NJK';
+            $ttdRole = 'Teknisi';
+        } else {
+            $ttdName = $kasir->name ?? 'Admin';
+            $ttdRole = 'Kasir';
+        }
+    @endphp
+
     <div class="ttd-wrapper clearfix">
-        <div class="ttd-kiri">
-            <p>Mengetahui,<br>Pimpinan Toko</p>
-            <div class="ttd-kosong"></div>
-            <p class="fw-bold">( Nasrulia )</p>
-        </div>
         <div class="ttd-kanan">
-            <p>Banjarmasin, {{ \Carbon\Carbon::now('Asia/Makassar')->format('d F Y') }}<br>Kasir</p>
-            <div class="ttd-kosong"></div>
-            <p class="fw-bold">( {{ $kasir->name }} )</p>
+            <p>Banjarmasin, {{ \Carbon\Carbon::now('Asia/Makassar')->format('d F Y') }}<br>{{ $ttdRole }}</p>
+            
             <div class="stempel">
                 @php 
                     $stempelSvg = public_path('images/stempel.svg');
@@ -180,13 +226,16 @@
                 @else
                     <div style="width:100px;height:80px;border:2px dashed #999;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#999;">[STAMPEL]</div>
                 @endif
-                <p style="font-size:7pt; margin-top:2px;">* Stempel & Tanda Tangan Resmi *</p>
             </div>
+
+            <div class="ttd-kosong"></div>
+            <p class="fw-bold" style="position: relative; z-index: 10;">( {{ $ttdName }} )</p>
+            <p style="font-size:7pt; margin-top:2px;">* Stempel & Tanda Tangan Resmi *</p>
         </div>
     </div>
 
     <div class="footer">
-        Terima kasih telah berbelanja di Nusantara Jaya Komputer | Barang yang sudah dibeli tidak dapat dikembalikan | Simpan nota ini sebagai bukti pembayaran resmi
+        Terima kasih telah berbelanja di Nusantara Jaya Computer | Barang yang sudah dibeli tidak dapat dikembalikan | Simpan nota ini sebagai bukti pembayaran resmi
     </div>
 </body>
 </html>

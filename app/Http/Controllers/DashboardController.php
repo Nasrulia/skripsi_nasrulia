@@ -52,12 +52,29 @@ class DashboardController extends Controller
             ]);
         }
 
+        $admin_teknisi_stats = collect();
+        if (Auth::user()->peran == 'admin' || Auth::user()->peran == 'kasir') {
+            $teknisis = \App\Models\User::where('peran', 'teknisi')->get();
+            $admin_teknisi_stats = $teknisis->map(function ($t) {
+                $servis = ServisDetail::where('teknisi_id', $t->id)->get();
+                return [
+                    'nama' => $t->name,
+                    'proses' => $servis->where('status', 'proses')->count(),
+                    'selesai' => $servis->whereIn('status', ['selesai', 'diambil'])->count(),
+                    'total_servis' => $servis->count(),
+                    'upah' => $servis->whereIn('status', ['selesai', 'diambil'])->sum('upah_teknisi'),
+                    'toko' => $servis->whereIn('status', ['selesai', 'diambil'])->sum('keuntungan_toko'),
+                ];
+            });
+        }
+
         return view('dashboard', compact(
             'total_produk',
             'penjualan_hari_ini',
             'servis_berjalan',
             'pendapatan_bulan_ini',
-            'teknisi_stats'
+            'teknisi_stats',
+            'admin_teknisi_stats'
         ));
     }
 

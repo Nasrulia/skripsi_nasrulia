@@ -29,6 +29,9 @@ class Transaksi extends Model
         'bukti_bayar',
         'no_resi',
         'status_pengiriman',
+        'estimasi_diambil',
+        'nominal_dp',
+        'batas_waktu_pengambilan',
     ];
 
     public function detail(): HasMany

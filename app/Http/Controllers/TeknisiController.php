@@ -120,7 +120,7 @@ class TeknisiController extends Controller
             $pdfPath = $tempDir . '/' . $filename;
             $pdf->save($pdfPath);
 
-            $caption = "*NUSANTARA JAYA KOMPUTER - TANDA TERIMA SERVIS*\n\n";
+            $caption = "*NUSANTARA JAYA COMPUTER - TANDA TERIMA SERVIS*\n\n";
             $caption .= "Halo *$request->nama_pelanggan*,\n\n";
             $caption .= "Terima kasih telah mempercayakan servis perangkat Anda kepada kami. Berikut terlampir **Tanda Terima Resmi** servis Anda dalam bentuk PDF.\n\n";
             $caption .= "📋 Kode Servis: *{$transaksi->kode_transaksi}*\n";
@@ -133,7 +133,7 @@ class TeknisiController extends Controller
             $caption .= "⏳ Estimasi Waktu: {$request->estimasi_waktu}\n\n";
             $caption .= "Anda dapat memantau status servis secara mandiri melalui web cek-status.\n";
             $caption .= "-----------------------\n";
-            $caption .= "Nusantara Jaya Komputer";
+            $caption .= "Nusantara Jaya Computer";
 
             $this->wa->sendFile($request->no_whatsapp, $pdfPath, $filename, $caption);
 
@@ -212,28 +212,124 @@ class TeknisiController extends Controller
 
         $servis->update($data);
 
-        // If status updated to 'selesai' or other, also notify
+        $waUrl = null;
+        $user = $servis->transaksi->user ?? null;
+
+        if ($request->status == 'selesai' && $user && !empty($user->no_whatsapp)) {
+            $phone = preg_replace('/[^0-9]/', '', $user->no_whatsapp);
+            if (strpos($phone, '0') === 0) {
+                $phone = '62' . substr($phone, 1);
+            } elseif (strpos($phone, '62') !== 0) {
+                $phone = '62' . $phone;
+            }
+
+            $namaPelanggan = $servis->transaksi->nama_pelanggan ?? $user->name;
+            $kodeTransaksi = $servis->transaksi->kode_transaksi ?? '-';
+            $namaBarang = $servis->nama_barang ?? 'Barang Servis';
+            $catatan = $request->catatan_teknisi;
+
+            $message = "*NUSANTARA JAYA COMPUTER - NOTIFIKASI SERVIS SELESAI*\n";
+            $message .= "-----------------------\n";
+            $message .= "Halo *$namaPelanggan*,\n\n";
+            $message .= "Kabar baik! Servis barang Anda telah *SELESAI* dan siap untuk diambil.\n\n";
+            $message .= "📋 *Detail Servis*:\n";
+            $message .= "- Kode Servis: *$kodeTransaksi*\n";
+            $message .= "- Barang: *$namaBarang*\n";
+            if ($catatan) {
+                $message .= "- Catatan/Pesan: *$catatan*\n";
+            }
+            $message .= "\nSilakan datang ke toko untuk pengambilan barang.\n";
+            $message .= "Terima kasih atas kepercayaan Anda kepada NJK!\n";
+            $message .= "-----------------------\n";
+            $message .= "Nusantara Jaya Computer";
+
+            $waUrl = "https://wa.me/" . $phone . "?text=" . urlencode($message);
+        }
+
+        // If status updated to 'selesai' or other, also notify via auto WA if setup
         try {
-            $user = $servis->transaksi->user ?? null;
             if ($user && !empty($user->no_whatsapp)) {
-                $statusLabel = [
-                    'proses' => 'Sedang Diproses',
-                    'selesai' => 'Selesai',
-                    'diambil' => 'Sudah Diambil',
-                    'garansi' => 'Dalam Garansi',
-                    'batal' => 'Dibatalkan',
-                ];
-                $this->wa->sendServisNotif(
-                    $user->no_whatsapp,
-                    $servis->transaksi->nama_pelanggan ?? $user->name,
-                    $servis->transaksi->kode_transaksi,
-                    $servis->nama_barang ?? 'Barang Servis',
-                    $statusLabel[$request->status] ?? $request->status,
-                    $request->catatan_teknisi
-                );
+                if ($request->status == 'selesai') {
+                    // Generate and send PDF Invoice via WhatsApp
+                    try {
+                        $transaksi = Transaksi::with('detail.produk', 'servisDetail.jasaServis', 'user', 'ekspedisi')->findOrFail($servis->transaksi_id);
+                        $kasir = Auth::user() ?? User::where('peran', 'admin')->first();
+                        
+                        $pdf = Pdf::loadView('laporan.pdf-invoice', compact('transaksi', 'kasir'));
+                        $pdf->setPaper('A4', 'portrait');
+                        
+                        $tempDir = storage_path('app/public/nota-transaksi');
+                        if (!file_exists($tempDir)) {
+                            mkdir($tempDir, 0755, true);
+                        }
+                        
+                        $filename = 'Nota_Servis_' . $transaksi->kode_transaksi . '.pdf';
+                        $pdfPath = $tempDir . '/' . $filename;
+                        $pdf->save($pdfPath);
+
+                        $namaPelanggan = $transaksi->nama_pelanggan ?? $user->name;
+                        $namaBarang = $servis->nama_barang ?? 'Barang Servis';
+                        $catatan = $request->catatan_teknisi;
+                        
+                        $caption = "*NUSANTARA JAYA COMPUTER - NOTA TRANSAKSI SERVIS*\n";
+                        $caption .= "-----------------------\n";
+                        $caption .= "Halo *$namaPelanggan*,\n\n";
+                        $caption .= "Kabar baik! Servis barang Anda telah *SELESAI* dan siap untuk diambil.\n";
+                        $caption .= "Berikut terlampir **Nota Transaksi Resmi** servis Anda dalam bentuk PDF.\n\n";
+                        $caption .= "📋 *Detail Servis*:\n";
+                        $caption .= "- Kode Servis: *{$transaksi->kode_transaksi}*\n";
+                        $caption .= "- Perangkat: *{$namaBarang}*\n";
+                        $caption .= "- Total Biaya: *Rp " . number_format($transaksi->total_bayar, 0, ',', '.') . "*\n";
+                        if ($catatan) {
+                            $caption .= "- Catatan/Pesan: *{$catatan}*\n";
+                        }
+                        $caption .= "\nSilakan datang ke toko untuk pengambilan perangkat dan melakukan pelunasan pembayaran.\n";
+                        $caption .= "Terima kasih atas kepercayaan Anda kepada NJK!\n";
+                        $caption .= "-----------------------\n";
+                        $caption .= "Nusantara Jaya Computer";
+                        
+                        $this->wa->sendFile($user->no_whatsapp, $pdfPath, $filename, $caption);
+                        
+                        if (file_exists($pdfPath)) {
+                            unlink($pdfPath);
+                        }
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Gagal generate atau kirim PDF Nota Servis: ' . $e->getMessage());
+                        // Fallback to text message if PDF fails
+                        $this->wa->sendServisNotif(
+                            $user->no_whatsapp,
+                            $servis->transaksi->nama_pelanggan ?? $user->name,
+                            $servis->transaksi->kode_transaksi,
+                            $servis->nama_barang ?? 'Barang Servis',
+                            'Selesai',
+                            $request->catatan_teknisi
+                        );
+                    }
+                } else {
+                    $statusLabel = [
+                        'proses' => 'Sedang Diproses',
+                        'diambil' => 'Sudah Diambil',
+                        'garansi' => 'Dalam Garansi',
+                        'batal' => 'Dibatalkan',
+                    ];
+                    $this->wa->sendServisNotif(
+                        $user->no_whatsapp,
+                        $servis->transaksi->nama_pelanggan ?? $user->name,
+                        $servis->transaksi->kode_transaksi,
+                        $servis->nama_barang ?? 'Barang Servis',
+                        $statusLabel[$request->status] ?? $request->status,
+                        $request->catatan_teknisi
+                    );
+                }
             }
         } catch (\Exception $e) {
             // Abaikan error WA
+        }
+
+        if ($waUrl) {
+            return redirect()->back()
+                ->with('success', 'Status servis berhasil diperbarui!')
+                ->with('whatsapp_url', $waUrl);
         }
 
         return redirect()->back()->with('success', 'Status servis berhasil diperbarui!');
@@ -275,25 +371,19 @@ class TeknisiController extends Controller
     public function prosesCekStatusPublic(Request $request)
     {
         $request->validate([
-            'no_whatsapp' => 'required|string|max:25',
+            'kode_transaksi' => 'required|string|max:50',
         ]);
 
-        $no_whatsapp = $request->no_whatsapp;
+        $kode_transaksi = trim($request->kode_transaksi);
 
-        // Find user by WhatsApp
-        $user = User::where('no_whatsapp', $no_whatsapp)->first();
+        $servis = ServisDetail::with('transaksi', 'jasaServis', 'teknisi')
+            ->whereHas('transaksi', function($query) use ($kode_transaksi) {
+                $query->where('kode_transaksi', $kode_transaksi);
+            })
+            ->latest()
+            ->get();
 
-        $servis = collect();
-        if ($user) {
-            $servis = ServisDetail::with('transaksi', 'jasaServis', 'teknisi')
-                ->whereHas('transaksi', function($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                })
-                ->latest()
-                ->get();
-        }
-
-        return view('teknisi.cek-status', compact('servis', 'no_whatsapp'));
+        return view('teknisi.cek-status', compact('servis', 'kode_transaksi'));
     }
 
     public function uploadPembayaranPublic(Request $request, $id)
@@ -339,5 +429,34 @@ class TeknisiController extends Controller
         $pdf->setPaper('A4', 'portrait');
         
         return $pdf->stream('Tanda_Terima_' . ($servis->transaksi->kode_transaksi ?? $id) . '.pdf');
+    }
+
+    public function unduhNotaServis($id)
+    {
+        $servis = ServisDetail::with('transaksi.user', 'teknisi')->findOrFail($id);
+        $transaksi = $servis->transaksi;
+        $kasir = Auth::user();
+        
+        $pdf = Pdf::loadView('laporan.pdf-invoice', compact('transaksi', 'kasir'));
+        $pdf->setPaper('A4', 'portrait');
+        
+        return $pdf->stream('Nota_Servis_' . ($transaksi->kode_transaksi ?? $id) . '.pdf');
+    }
+
+    public function unduhNotaServisPublic($id)
+    {
+        $servis = ServisDetail::with('transaksi.user', 'teknisi')->findOrFail($id);
+        
+        if ($servis->transaksi->status !== 'Lunas' && !in_array($servis->status, ['selesai', 'diambil', 'garansi'])) {
+            abort(403, 'Nota belum tersedia karena transaksi belum lunas atau servis belum selesai.');
+        }
+
+        $transaksi = $servis->transaksi;
+        $kasir = Auth::user() ?? User::where('peran', 'admin')->first();
+        
+        $pdf = Pdf::loadView('laporan.pdf-invoice', compact('transaksi', 'kasir'));
+        $pdf->setPaper('A4', 'portrait');
+        
+        return $pdf->stream('Nota_Servis_' . ($transaksi->kode_transaksi ?? $id) . '.pdf');
     }
 }

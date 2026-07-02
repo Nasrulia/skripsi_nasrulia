@@ -5,12 +5,12 @@
             <x-auth-session-status class="mb-4 alert alert-info" :status="session('status')" />
 
             <div class="card shadow-lg border-0 rounded-4">
-                <div class="card-body p-5">
+                <div class="card-body p-4">
                     
-                    <div class="text-center mb-4">
-                        <img src="{{ asset('images/logo-square.svg') }}" alt="Logo NJK" class="img-fluid rounded-circle shadow-sm mb-3" style="width: 90px; height: 90px; object-fit: cover;">
-                        <h4 class="fw-bold text-primary mb-1">Login Sistem</h4>
-                        <p class="text-muted small">Nusantara Jaya Komputer</p>
+                    <div class="text-center mb-3">
+                        <img src="{{ asset('images/logo.jpg') }}" alt="Logo NJK" class="img-fluid rounded-circle shadow-sm mb-2" style="width: 70px; height: 70px; object-fit: cover;">
+                        <h4 class="fw-bold text-primary mb-0" style="font-size: 1.25rem;">Login Sistem</h4>
+                        <p class="text-muted small mb-0">Nusantara Jaya Computer</p>
                     </div>
 
                     <form method="POST" action="{{ route('login') }}">
@@ -53,10 +53,17 @@
                             <a href="{{ route('register') }}" class="text-decoration-none small fw-semibold">Daftar disini</a>
                         </div>
 
-                        <div class="text-center mt-3 pt-3 border-top">
-                            <a href="{{ route('cek-servis.public') }}" class="btn btn-outline-success w-100 rounded-3 fw-semibold py-2">
-                                <i class="bi bi-search me-2"></i> Lacak Status Servis Anda (Tanpa Login)
-                            </a>
+                        <div class="row g-2 mt-2 pt-2 border-top">
+                            <div class="col-6">
+                                <a href="{{ route('konsultasi') }}" class="btn btn-sm btn-outline-primary w-100 rounded-3 fw-semibold py-2" style="font-size: 0.8rem;">
+                                    <i class="bi bi-robot"></i> Chatbot AI
+                                </a>
+                            </div>
+                            <div class="col-6">
+                                <a href="{{ route('cek-servis.public') }}" class="btn btn-sm btn-outline-success w-100 rounded-3 fw-semibold py-2" style="font-size: 0.8rem;">
+                                    <i class="bi bi-search"></i> Lacak Servis
+                                </a>
+                            </div>
                         </div>
                     </form>
 

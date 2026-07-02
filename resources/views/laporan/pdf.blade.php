@@ -50,6 +50,17 @@
                 <th width="10%">Stok</th>
             </tr>
             
+            @elseif($tipe == 'produk-stok')
+            <tr>
+                <th width="5%">No</th>
+                <th width="20%">Kategori</th>
+                <th width="30%">Nama Produk</th>
+                <th width="15%">Harga Beli</th>
+                <th width="15%">Harga Jual</th>
+                <th width="10%">Stok</th>
+                <th width="10%">Status Stok</th>
+            </tr>
+            
             @elseif($tipe == 'jasa')
             <tr>
                 <th width="5%">No</th>
@@ -64,14 +75,17 @@
                 <th width="70%">Jawaban Sistem AI</th>
             </tr>
 
-            @elseif($tipe == 'transaksi-semua' || $tipe == 'transaksi-lunas' || $tipe == 'transaksi-pending')
+            @elseif($tipe == 'transaksi-semua' || $tipe == 'transaksi-lunas' || $tipe == 'transaksi-pending' || $tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis')
             <tr>
                 <th width="5%">No</th>
-                <th width="20%">Kode Transaksi</th>
-                <th width="20%">Tanggal</th>
-                <th width="25%">Nama Pelanggan</th>
-                <th width="15%">Status</th>
-                <th width="15%">Total Bayar</th>
+                <th width="18%">Kode Transaksi</th>
+                <th width="18%">Tanggal</th>
+                <th width="22%">Nama Pelanggan</th>
+                @if($tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis')
+                <th width="15%">Metode Bayar</th>
+                @endif
+                <th width="10%">Status</th>
+                <th width="12%">Total Bayar</th>
             </tr>
 
             @elseif($tipe == 'pendapatan')
@@ -98,6 +112,28 @@
                     <td class="text-center fw-bold">{{ $d->stok }}</td>
                 </tr>
 
+                @elseif($tipe == 'produk-stok')
+                @php
+                    $status_stok = 'Cukup';
+                    $color_class = '#198754';
+                    if ($d->stok == 0) {
+                        $status_stok = 'Habis';
+                        $color_class = '#dc3545';
+                    } elseif ($d->stok < 5) {
+                        $status_stok = 'Menipis';
+                        $color_class = '#ffc107';
+                    }
+                @endphp
+                <tr>
+                    <td class="text-center">{{ $no++ }}</td>
+                    <td>{{ $d->kategori->nama_kategori ?? '-' }}</td>
+                    <td>{{ $d->nama_produk }}</td>
+                    <td class="text-right">Rp {{ number_format($d->harga_beli, 0, ',', '.') }}</td>
+                    <td class="text-right">Rp {{ number_format($d->harga_jual, 0, ',', '.') }}</td>
+                    <td class="text-center fw-bold">{{ $d->stok }}</td>
+                    <td class="text-center fw-bold" style="color: {{ $color_class }}">{{ $status_stok }}</td>
+                </tr>
+
                 @elseif($tipe == 'jasa')
                 <tr>
                     <td class="text-center">{{ $no++ }}</td>
@@ -112,13 +148,17 @@
                     <td>{{ $d->jawaban }}</td>
                 </tr>
 
-                @elseif($tipe == 'transaksi-semua' || $tipe == 'transaksi-lunas' || $tipe == 'transaksi-pending')
+                @elseif($tipe == 'transaksi-semua' || $tipe == 'transaksi-lunas' || $tipe == 'transaksi-pending' || $tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis')
+                @php $grand_total += $d->total_bayar; @endphp
                 <tr>
                     <td class="text-center">{{ $no++ }}</td>
                     <td class="text-center">{{ $d->kode_transaksi }}</td>
                     <td class="text-center">{{ \Carbon\Carbon::parse($d->created_at)->format('d/m/Y H:i') }}</td>
                     <td>{{ $d->nama_pelanggan }}</td>
-                    <td class="text-center">{{ strtoupper($d->status) }}</td>
+                    @if($tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis')
+                    <td class="text-center">{{ ucfirst($d->metode_pembayaran ?? '-') }}</td>
+                    @endif
+                    <td class="text-center fw-bold" style="color: {{ $d->status == 'Lunas' ? '#198754' : '#dc3545' }}">{{ strtoupper($d->status ?? 'PENDING') }}</td>
                     <td class="text-right">Rp {{ number_format($d->total_bayar, 0, ',', '.') }}</td>
                 </tr>
 
@@ -135,15 +175,15 @@
 
             @empty
                 <tr>
-                    <td colspan="6" class="text-center">Tidak ada data untuk laporan ini.</td>
+                    <td colspan="{{ ($tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis') ? 7 : (($tipe == 'produk-stok') ? 7 : 6) }}" class="text-center">Tidak ada data untuk laporan ini.</td>
                 </tr>
             @endforelse
         </tbody>
 
-        @if($tipe == 'pendapatan')
+        @if($tipe == 'pendapatan' || $tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis')
         <tfoot>
             <tr>
-                <td colspan="4" class="text-right fw-bold">TOTAL PENDAPATAN KESELURUHAN:</td>
+                <td colspan="{{ ($tipe == 'transaksi-penjualan' || $tipe == 'transaksi-servis') ? 6 : 4 }}" class="text-right fw-bold">TOTAL PENDAPATAN KESELURUHAN:</td>
                 <td class="text-right fw-bold" style="background-color: #d1e7dd;">Rp {{ number_format($grand_total, 0, ',', '.') }}</td>
             </tr>
         </tfoot>

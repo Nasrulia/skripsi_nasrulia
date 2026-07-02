@@ -10,6 +10,7 @@ use App\Models\ServisDetail;
 use App\Models\ChatbotLog;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use App\Models\TransaksiDetail;
 
 class LaporanController extends Controller
 {
@@ -26,44 +27,32 @@ class LaporanController extends Controller
         $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
 
         switch ($tipe) {
-            case 'produk-semua':
+            case 'transaksi-penjualan':
+                $data = Transaksi::where('tipe', 'penjualan')->where('status', 'Lunas')->latest()->get();
+                $judul = 'Laporan Transaksi Penjualan (Lunas)';
+                break;
+            case 'transaksi-servis':
+                $data = Transaksi::where('tipe', 'servis')->latest()->get();
+                $judul = 'Laporan Transaksi Service';
+                break;
+            case 'produk-stok':
                 $data = Produk::with('kategori')->get();
-                $judul = 'Laporan Seluruh Data Produk';
+                $judul = 'Laporan Stock Barang';
                 break;
-            case 'produk-menipis':
-                $data = Produk::with('kategori')->where('stok', '<', 5)->get();
-                $judul = 'Laporan Stok Produk Menipis (< 5)';
-                break;
-            case 'chatbot':
-                $data = AturanChatbot::all();
-                $judul = 'Laporan Knowledge Base AI (Aturan Chatbot)';
-                break;
-            case 'transaksi-semua':
-                $data = Transaksi::latest()->get();
-                $judul = 'Laporan Seluruh Riwayat Transaksi';
-                break;
-            case 'transaksi-lunas':
-                $data = Transaksi::where('status', 'Lunas')->latest()->get();
-                $judul = 'Laporan Transaksi Berhasil (Lunas)';
-                break;
-            case 'transaksi-pending':
-                $data = Transaksi::where('status', '!=', 'Lunas')->latest()->get();
-                $judul = 'Laporan Transaksi Pending (Belum Lunas)';
-                break;
-            case 'pendapatan':
-                $data = Transaksi::where('status', 'Lunas')->latest()->get();
-                $judul = 'Laporan Rekap Pendapatan Keseluruhan';
-                break;
-            case 'margin':
-                return $this->cetakMargin();
+            case 'produk-terlaris':
+                return $this->cetakProdukTerlaris();
             case 'servis-ringkasan':
                 return $this->cetakServisRingkasan();
             case 'servis-rekap':
                 return $this->cetakServisRekap();
-            case 'keuangan':
-                return $this->cetakKeuangan();
+            case 'komplain':
+                return $this->cetakKomplain();
             case 'chatbot-analitik':
                 return $this->cetakChatbotAnalitik();
+            case 'keuangan':
+                return $this->cetakKeuangan();
+            case 'metode-pembayaran':
+                return $this->cetakMetodePembayaran();
             default:
                 abort(404);
         }
@@ -118,7 +107,7 @@ class LaporanController extends Controller
 
     public function cetakServisRekap()
     {
-        $judul = 'Laporan Rekapitulasi & Kinerja Servis';
+        $judul = 'Laporan Teknisi & Data Service';
         $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
 
         $servis = ServisDetail::with('transaksi', 'teknisi')->latest()->get();
@@ -208,7 +197,7 @@ class LaporanController extends Controller
 
     public function cetakChatbotAnalitik()
     {
-        $judul = 'Laporan Analitik Chatbot AI';
+        $judul = 'Laporan Chatbot (Analitik & Percakapan)';
         $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
 
         $logs = ChatbotLog::with('user')->latest()->get();
@@ -226,5 +215,109 @@ class LaporanController extends Controller
         ));
         $pdf->setPaper('A4', 'landscape');
         return $pdf->stream('Laporan_Chatbot_Analitik_' . time() . '.pdf');
+    }
+
+    public function cetakProdukTerlaris()
+    {
+        $judul = 'Laporan Transaksi (Produk Terlaris)';
+        $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
+
+        $data = TransaksiDetail::with('produk.kategori')
+            ->whereHas('transaksi', function($query) {
+                $query->where('tipe', 'penjualan')->where('status', 'Lunas');
+            })
+            ->whereNotNull('produk_id')
+            ->selectRaw('produk_id, sum(jumlah) as total_terjual, sum(subtotal) as total_pendapatan')
+            ->groupBy('produk_id')
+            ->orderByDesc('total_terjual')
+            ->get();
+
+        $pdf = Pdf::loadView('laporan.pdf-terlaris', compact('data', 'judul', 'waktu_cetak'));
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->stream('Laporan_Barang_Terlaris_' . time() . '.pdf');
+    }
+
+    public function cetakKomplain()
+    {
+        $judul = 'Laporan Komplain Pelanggan via Chatbot & Servis';
+        $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
+
+        // Kata kunci komplain/keluhan di chatbot
+        $keywords = ['komplain', 'rusak', 'kecewa', 'error', 'lambat', 'salah', 'tidak sesuai', 'retur', 'pecah', 'cacat', 'komplen', 'masalah', 'kendala', 'complain'];
+
+        $logs = ChatbotLog::with('user')
+            ->where(function($query) use ($keywords) {
+                foreach ($keywords as $kw) {
+                    $query->orWhere('pesan', 'like', '%' . $kw . '%');
+                }
+            })
+            ->latest()
+            ->get();
+
+        $total_komplain = $logs->count();
+
+        // Ambil data komplain resmi dari database
+        $komplain_resmi = \App\Models\Komplain::with(['transaksi', 'user'])->latest()->get();
+
+        // Ambil data servis berstatus garansi atau batal sebagai info pendukung
+        $servis_komplain = ServisDetail::with('transaksi', 'teknisi')
+            ->whereIn('status', ['garansi', 'batal'])
+            ->latest()
+            ->get();
+
+        $pdf = Pdf::loadView('laporan.pdf-komplain', compact(
+            'judul', 'waktu_cetak', 'logs', 'total_komplain', 'servis_komplain', 'komplain_resmi'
+        ));
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->stream('Laporan_Komplain_' . time() . '.pdf');
+    }
+
+    public function cetakMetodePembayaran()
+    {
+        $judul = 'Laporan Analisis Metode Pembayaran (Cash vs Transfer)';
+        $waktu_cetak = Carbon::now('Asia/Makassar')->format('d M Y H:i');
+
+        // Hanya transaksi Lunas untuk keakuratan omzet
+        $transaksi = Transaksi::where('status', 'Lunas')->get();
+
+        $total_cash = $transaksi->where('metode_pembayaran', 'cash')->sum('total_bayar');
+        $count_cash = $transaksi->where('metode_pembayaran', 'cash')->count();
+
+        $total_transfer = $transaksi->where('metode_pembayaran', 'transfer')->sum('total_bayar');
+        $count_transfer = $transaksi->where('metode_pembayaran', 'transfer')->count();
+
+        $total_keseluruhan = $total_cash + $total_transfer;
+        $count_keseluruhan = $count_cash + $count_transfer;
+
+        // Persentase omzet
+        $persen_cash_omzet = $total_keseluruhan > 0 ? round(($total_cash / $total_keseluruhan) * 100, 2) : 0;
+        $persen_transfer_omzet = $total_keseluruhan > 0 ? round(($total_transfer / $total_keseluruhan) * 100, 2) : 0;
+
+        // Persentase jumlah transaksi
+        $persen_cash_count = $count_keseluruhan > 0 ? round(($count_cash / $count_keseluruhan) * 100, 2) : 0;
+        $persen_transfer_count = $count_keseluruhan > 0 ? round(($count_transfer / $count_keseluruhan) * 100, 2) : 0;
+
+        // Detail transaksi terbaru
+        $transaksi_cash = Transaksi::where('status', 'Lunas')
+            ->where('metode_pembayaran', 'cash')
+            ->latest()
+            ->take(15)
+            ->get();
+
+        $transaksi_transfer = Transaksi::where('status', 'Lunas')
+            ->where('metode_pembayaran', 'transfer')
+            ->latest()
+            ->take(15)
+            ->get();
+
+        $pdf = Pdf::loadView('laporan.pdf-metode-pembayaran', compact(
+            'judul', 'waktu_cetak',
+            'total_cash', 'count_cash', 'persen_cash_omzet', 'persen_cash_count',
+            'total_transfer', 'count_transfer', 'persen_transfer_omzet', 'persen_transfer_count',
+            'total_keseluruhan', 'count_keseluruhan',
+            'transaksi_cash', 'transaksi_transfer'
+        ));
+        $pdf->setPaper('A4', 'portrait');
+        return $pdf->stream('Laporan_Metode_Pembayaran_' . time() . '.pdf');
     }
 }

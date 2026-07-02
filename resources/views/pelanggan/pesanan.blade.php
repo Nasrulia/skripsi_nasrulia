@@ -21,6 +21,13 @@
         </div>
     @endif
 
+    @if(session('info'))
+        <div class="alert alert-info alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4">
+            <i class="bi bi-info-circle-fill me-2"></i> {{ session('info') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h3 class="fw-bold text-dark">Pesanan Saya</h3>
@@ -60,9 +67,14 @@
                             <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalDetail{{ $p->id }}">
                                 <i class="bi bi-eye me-1"></i> Detail
                             </button>
-                            @if($p->status == 'Lunas')
+                            @if($p->status == 'Lunas' || $p->metode_pengambilan == 'diambil' || ($p->tipe == 'servis' && in_array($p->servisDetail->first()?->status, ['selesai', 'diambil', 'garansi'])))
                             <a href="{{ route('pesanan.invoice', $p->id) }}" target="_blank" class="btn btn-sm btn-outline-danger rounded-pill px-3">
-                                <i class="bi bi-file-pdf"></i> Invoice
+                                <i class="bi bi-file-pdf"></i>
+                                @if($p->status != 'Lunas' && $p->metode_pengambilan == 'diambil' && $p->metode_pembayaran == 'cash')
+                                    Nota Sementara
+                                @else
+                                    Nota/Invoice
+                                @endif
                             </a>
                             @endif
                         </td>
@@ -284,7 +296,7 @@
                             </div>
                             <div class="mb-3 position-relative">
                                 <div class="position-absolute bg-secondary rounded-circle" style="width: 8px; height: 8px; left: -20px; top: 6px;"></div>
-                                <span class="fw-bold small text-muted d-block" style="font-size: 0.85rem;">Paket keluar dari Hub Sortir Nusantara Jaya Komputer</span>
+                                <span class="fw-bold small text-muted d-block" style="font-size: 0.85rem;">Paket keluar dari Hub Sortir Nusantara Jaya Computer</span>
                                 <small class="text-muted" style="font-size: 0.75rem;">{{ \Carbon\Carbon::parse($p->updated_at)->subMinutes(15)->format('d M Y, H:i') }} | Paket disiapkan untuk pengantar ekspedisi.</small>
                             </div>
                             <div class="position-relative">
@@ -324,29 +336,48 @@
                     @elseif($p->metode_pengambilan == 'diambil')
                     <div class="alert alert-success border-0 mt-3 mb-0 d-flex align-items-center rounded-3">
                         <i class="bi bi-shop fs-4 me-3 text-success"></i>
-                        <small class="text-dark">Metode: <strong>Ambil di Toko</strong></small>
+                        <div>
+                            <small class="fw-bold d-block text-success">Metode: Ambil di Toko</small>
+                            @if($p->estimasi_diambil)
+                            <small class="text-dark d-block">Estimasi Pengambilan: <strong>{{ \Carbon\Carbon::parse($p->estimasi_diambil)->format('d M Y H:i') }}</strong></small>
+                            @endif
+                            @if($p->metode_pembayaran == 'cash' && $p->batas_waktu_pengambilan)
+                            <small class="text-danger d-block fw-bold"><i class="bi bi-calendar-x me-1"></i> Batas Waktu Pengambilan: {{ \Carbon\Carbon::parse($p->batas_waktu_pengambilan)->format('d M Y H:i') }}</small>
+                            @endif
+                            @if($p->nominal_dp > 0)
+                            <small class="text-dark d-block">DP Wajib (Transfer): <strong>Rp {{ number_format($p->nominal_dp, 0, ',', '.') }}</strong></small>
+                            <small class="text-dark d-block">Sisa Pelunasan di Toko: <strong>Rp {{ number_format($p->total_bayar - $p->nominal_dp, 0, ',', '.') }}</strong></small>
+                            @endif
+                        </div>
                     </div>
                     @endif
 
                     @if($p->status != 'Lunas')
-                        @if($p->bukti_bayar)
+                        @if($p->metode_pengambilan == 'diambil' && $p->metode_pembayaran == 'cash')
                         <div class="alert alert-info border-0 mt-3 mb-0 d-flex align-items-center rounded-3">
-                            <i class="bi bi-check-circle-fill fs-4 me-3 text-info"></i>
-                            <small class="text-dark">Bukti pembayaran sudah diupload. Menunggu konfirmasi admin.</small>
-                        </div>
-                        <div class="text-center mt-3">
-                            <img src="{{ asset('storage/' . $p->bukti_bayar) }}" class="rounded-3 shadow-sm" style="max-height: 200px; object-fit: contain;" alt="Bukti Bayar">
+                            <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
+                            <small class="text-dark">Pembayaran dilakukan secara tunai (Cash) saat mengambil barang di toko. Silakan tunjukkan Nota Sementara Anda.</small>
                         </div>
                         @else
-                        <div class="alert alert-warning border-0 mt-3 mb-0 d-flex align-items-center rounded-3">
-                            <i class="bi bi-info-circle-fill fs-4 me-3 text-warning"></i>
-                            <small class="text-dark">Silakan upload bukti pembayaran untuk mempercepat konfirmasi.</small>
-                        </div>
-                        <div class="text-center mt-3">
-                            <a href="{{ route('pembayaran.form', $p->id) }}" class="btn btn-warning rounded-pill px-4">
-                                <i class="bi bi-upload me-1"></i> Upload Bukti Bayar
-                            </a>
-                        </div>
+                            @if($p->bukti_bayar)
+                            <div class="alert alert-info border-0 mt-3 mb-0 d-flex align-items-center rounded-3">
+                                <i class="bi bi-check-circle-fill fs-4 me-3 text-info"></i>
+                                <small class="text-dark">Bukti pembayaran @if($p->nominal_dp > 0) DP @endif sudah diupload. Menunggu konfirmasi admin.</small>
+                            </div>
+                            <div class="text-center mt-3">
+                                <img src="{{ asset('storage/' . $p->bukti_bayar) }}" class="rounded-3 shadow-sm" style="max-height: 200px; object-fit: contain;" alt="Bukti Bayar">
+                            </div>
+                            @else
+                            <div class="alert alert-warning border-0 mt-3 mb-0 d-flex align-items-center rounded-3">
+                                <i class="bi bi-info-circle-fill fs-4 me-3 text-warning"></i>
+                                <small class="text-dark">Silakan upload bukti pembayaran @if($p->nominal_dp > 0) DP @endif untuk mempercepat konfirmasi.</small>
+                            </div>
+                            <div class="text-center mt-3">
+                                <a href="{{ route('pembayaran.form', $p->id) }}" class="btn btn-warning rounded-pill px-4">
+                                    <i class="bi bi-upload me-1"></i> Upload Bukti Bayar
+                                </a>
+                            </div>
+                            @endif
                         @endif
                     @else
                     <div class="text-center mt-3">
@@ -356,7 +387,12 @@
                 </div>
                 <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
                     <a href="{{ route('pesanan.invoice', $p->id) }}" target="_blank" class="btn btn-danger rounded-pill px-4 me-2">
-                        <i class="bi bi-file-pdf me-1"></i> Cetak Invoice PDF
+                        <i class="bi bi-file-pdf me-1"></i>
+                        @if($p->status != 'Lunas' && $p->metode_pengambilan == 'diambil' && $p->metode_pembayaran == 'cash')
+                            Cetak Nota Sementara
+                        @else
+                            Cetak Invoice PDF
+                        @endif
                     </a>
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Tutup</button>
                 </div>

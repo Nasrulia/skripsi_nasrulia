@@ -47,6 +47,21 @@
             @endif
         </div>
 
+        <div>
+            <x-input-label for="no_whatsapp" :value="__('No. WhatsApp')" />
+            <x-text-input id="no_whatsapp" name="no_whatsapp" type="text" class="mt-1 block w-full" :value="old('no_whatsapp', $user->no_whatsapp)" placeholder="08xxxxxxxxxx" />
+            <x-input-error class="mt-2" :messages="$errors->get('no_whatsapp')" />
+        </div>
+
+        <div class="block">
+            <label for="aktifkan_notifikasi" class="inline-flex items-center">
+                <input type="hidden" name="aktifkan_notifikasi" value="0">
+                <input id="aktifkan_notifikasi" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="aktifkan_notifikasi" value="1" {{ old('aktifkan_notifikasi', $user->aktifkan_notifikasi) ? 'checked' : '' }}>
+                <span class="ms-2 text-sm text-gray-600">{{ __('Aktifkan notifikasi WhatsApp untuk info restock barang') }}</span>
+            </label>
+            <x-input-error class="mt-2" :messages="$errors->get('aktifkan_notifikasi')" />
+        </div>
+
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 

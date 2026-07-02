@@ -20,6 +20,11 @@ Route::get('/cek-servis', [TeknisiController::class, 'cekStatusPublic'])->name('
 Route::post('/cek-servis', [TeknisiController::class, 'prosesCekStatusPublic'])->name('cek-servis.post');
 Route::post('/cek-servis/upload-pembayaran/{id}', [TeknisiController::class, 'uploadPembayaranPublic'])->name('cek-servis.upload-pembayaran');
 Route::post('/cek-servis/ubah-metode/{id}', [TeknisiController::class, 'ubahMetodePembayaranPublic'])->name('cek-servis.ubah-metode');
+Route::get('/cek-servis/nota/{id}', [TeknisiController::class, 'unduhNotaServisPublic'])->name('cek-servis.nota');
+
+// Public Chatbot AI
+Route::get('/konsultasi', function () { return view('chatbot.index'); })->name('konsultasi');
+Route::post('/api/chat', [ChatbotController::class, 'getResponse'])->name('api.chat');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -59,14 +64,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/teknisi/ambil/{id}', [TeknisiController::class, 'ambilServis'])->name('teknisi.ambil');
         Route::post('/teknisi/update-status/{id}', [TeknisiController::class, 'updateStatus'])->name('teknisi.update-status');
         Route::get('/teknisi/servis/tanda-terima/{id}', [TeknisiController::class, 'unduhTandaTerima'])->name('teknisi.servis.tanda-terima');
+        Route::get('/teknisi/servis/nota/{id}', [TeknisiController::class, 'unduhNotaServis'])->name('teknisi.servis.nota');
+
+        // Fitur Komplain Pelanggan
+        Route::get('/komplain', [App\Http\Controllers\KomplainController::class, 'index'])->name('komplain.index');
+        Route::post('/komplain/selesai/{id}', [App\Http\Controllers\KomplainController::class, 'selesai'])->name('komplain.selesai');
     });
 
-    // 4. AKSES SEMUA ROLE (Chatbot AI)
-    Route::middleware(['peran:admin,kasir,pelanggan,teknisi'])->group(function () {
-        // Fitur Chatbot
-        Route::get('/konsultasi', function () { return view('chatbot.index'); })->name('konsultasi');
-        Route::post('/api/chat', [ChatbotController::class, 'getResponse'])->name('api.chat');
-    });
+
 
     // 5. AKSES ADMIN, KASIR & PELANGGAN (Katalog & Transaksi Pelanggan)
     Route::middleware(['peran:admin,kasir,pelanggan'])->group(function () {

@@ -22,8 +22,8 @@
             <div class="alert alert-info border-0 rounded-3 mb-4 d-flex align-items-center">
                 <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
                 <div>
-                    <strong>Tips Pembuatan Aturan:</strong><br>
-                    <small>Gunakan kata kunci yang singkat dan sering ditanyakan pelanggan (Contoh: <i>"laptop gaming"</i>, <i>"servis lcd"</i>, <i>"jam buka"</i>).</small>
+                    <strong>Tips Pembuatan Aturan (Fuzzy Matching Aktif):</strong><br>
+                    <small>Anda dapat memasukkan beberapa kata kunci alias/sinonim yang dipisahkan dengan tanda koma (Contoh: <i>"jam buka, jadwal, hari buka"</i>). Sistem menggunakan algoritma <i>Fuzzy Matching</i> sehingga tetap dapat mengenali kata kunci meskipun ada salah ketik (typo) atau variasi penulisan dari pelanggan.</small>
                 </div>
             </div>
 
@@ -70,8 +70,8 @@
                                         @method('PUT')
                                         <div class="modal-body p-4">
                                             <div class="mb-3">
-                                                <label class="form-label fw-semibold text-muted small">Kata Kunci</label>
-                                                <input type="text" name="kata_kunci" class="form-control form-control-lg" value="{{ $a->kata_kunci }}" required>
+                                                <label class="form-label fw-semibold text-muted small">Kata Kunci (Bisa lebih dari satu, dipisahkan koma)</label>
+                                                <input type="text" name="kata_kunci" class="form-control form-control-lg" value="{{ $a->kata_kunci }}" placeholder="Contoh: laptop, leptop, notebook" required>
                                             </div>
                                             <div class="mb-3">
                                                 <label class="form-label fw-semibold text-muted small">Jawaban Sistem</label>
@@ -111,8 +111,8 @@
                     @csrf
                     <div class="modal-body p-4">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold text-muted small">Kata Kunci (Huruf Kecil Disarankan)</label>
-                            <input type="text" name="kata_kunci" class="form-control form-control-lg" placeholder="Contoh: gaming" required autofocus>
+                            <label class="form-label fw-semibold text-muted small">Kata Kunci (Bisa beberapa kata kunci dipisah koma)</label>
+                            <input type="text" name="kata_kunci" class="form-control form-control-lg" placeholder="Contoh: jam buka, jadwal, operasional" required autofocus>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold text-muted small">Jawaban Sistem</label>

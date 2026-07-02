@@ -5,9 +5,9 @@
                 <div class="card-body p-5">
                     
                     <div class="text-center mb-4">
-                        <img src="{{ asset('images/logo-square.svg') }}" alt="Logo NJK" class="img-fluid rounded-circle shadow-sm mb-3" style="width: 80px; height: 80px; object-fit: cover;">
+                        <img src="{{ asset('images/logo.jpg') }}" alt="Logo NJK" class="img-fluid rounded-circle shadow-sm mb-3" style="width: 80px; height: 80px; object-fit: cover;">
                         <h4 class="fw-bold text-primary mb-1">Daftar Akun Baru</h4>
-                        <p class="text-muted small">Nusantara Jaya Komputer</p>
+                        <p class="text-muted small">Nusantara Jaya Computer</p>
                     </div>
 
                     <form method="POST" action="{{ route('register') }}">
@@ -28,8 +28,16 @@
                         <div class="mb-3">
                             <label for="no_whatsapp" class="form-label fw-semibold">No. WhatsApp <span class="text-muted">(opsional)</span></label>
                             <input id="no_whatsapp" class="form-control form-control-lg @error('no_whatsapp') is-invalid @enderror" type="text" name="no_whatsapp" value="{{ old('no_whatsapp') }}" placeholder="08xxxxxxxxxx">
-                            <small class="text-muted">Untuk notifikasi pesanan via WhatsApp</small>
-                            @error('no_whatsapp') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            <small class="text-muted d-block mb-2">Untuk notifikasi pesanan via WhatsApp</small>
+                            @error('no_whatsapp') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
+                            
+                            <div class="form-check mt-2">
+                                <input type="hidden" name="aktifkan_notifikasi" value="0">
+                                <input class="form-check-input" type="checkbox" name="aktifkan_notifikasi" id="aktifkan_notifikasi" value="1" {{ old('aktifkan_notifikasi', '1') == '1' ? 'checked' : '' }}>
+                                <label class="form-check-label small fw-semibold text-muted" for="aktifkan_notifikasi">
+                                    Aktifkan notifikasi WhatsApp untuk info restock barang
+                                </label>
+                            </div>
                         </div>
 
                         <div class="mb-3">

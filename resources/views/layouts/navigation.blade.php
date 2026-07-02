@@ -1,6 +1,6 @@
 <nav id="sidebar">
     <div class="sidebar-header">
-        <img src="{{ asset('images/logo.svg') }}" alt="Logo NJK" class="img-fluid mb-2" id="sidebarLogo" style="max-height: 55px; object-fit: contain;">
+        <img src="{{ asset('images/logo.jpg') }}" alt="Logo NJK" class="img-fluid mb-2 rounded-circle" id="sidebarLogo" style="max-height: 55px; object-fit: contain;">
     </div>
 
     <ul class="list-unstyled components">
@@ -55,6 +55,11 @@
             <li>
                 <a href="{{ route('teknisi.servis') }}" class="{{ request()->is('teknisi/servis') || request()->is('teknisi/semua-servis') ? 'active' : '' }}">
                     <i class="bi bi-tools"></i> Kelola Servis
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('komplain.index') }}" class="{{ request()->is('komplain*') ? 'active' : '' }}">
+                    <i class="bi bi-clipboard-x-fill"></i> Daftar Komplain
                 </a>
             </li>
         @endif

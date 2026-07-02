@@ -16,7 +16,7 @@
                     <i class="bi bi-shop position-absolute opacity-25" style="font-size: 10rem; right: -20px; top: -30px;"></i>
                     <div class="position-relative z-index-1">
                         <h3 class="fw-bold mb-1">Selamat datang kembali, {{ Auth::user()->name }}!</h3>
-                        <p class="mb-0 opacity-75">Kelola penjualan, servis, dan produk Nusantara Jaya Komputer dalam satu sistem terintegrasi.</p>
+                        <p class="mb-0 opacity-75">Kelola penjualan, servis, dan produk Nusantara Jaya Computer dalam satu sistem terintegrasi.</p>
                     </div>
                 </div>
             </div>
@@ -293,7 +293,7 @@
                         <h5 class="fw-bold text-dark mb-1">
                             <i class="bi bi-graph-up text-primary me-2"></i>Grafik & Ringkasan Keuangan
                         </h5>
-                        <p class="text-muted small mb-0">Statistik penjualan dan keuntungan bersih toko Nusantara Jaya Komputer</p>
+                        <p class="text-muted small mb-0">Statistik penjualan dan keuntungan bersih toko Nusantara Jaya Computer</p>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <label for="filter-periode" class="text-muted small fw-semibold mb-0 d-none d-sm-block">Periode:</label>
@@ -359,7 +359,62 @@
         </div>
     </div>
 
-
+    <!-- Kinerja & Statistik Servis Teknisi (Admin & Kasir) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4 bg-white">
+                <div class="card-header border-0 bg-transparent pt-4 px-4">
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-person-badge-fill text-primary me-2"></i>Kinerja & Statistik Servis Teknisi
+                    </h5>
+                    <p class="text-muted small mb-0">Perbandingan jumlah tugas servis dan pendapatan bagi hasil per teknisi</p>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="row g-4">
+                        <!-- Chart Column -->
+                        <div class="col-lg-6">
+                            <div class="p-3 bg-light rounded-4 d-flex align-items-center justify-content-center" style="min-height: 320px;">
+                                <div style="height: 280px; width: 100%;">
+                                    <canvas id="teknisiAdminChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Table Column -->
+                        <div class="col-lg-6">
+                            <div class="table-responsive rounded-3 border border-light-subtle">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="small text-muted fw-bold border-0 py-2 px-3">Teknisi</th>
+                                            <th class="small text-muted fw-bold text-center border-0 py-2 px-3">Proses</th>
+                                            <th class="small text-muted fw-bold text-center border-0 py-2 px-3">Selesai</th>
+                                            <th class="small text-muted fw-bold text-end border-0 py-2 px-3">Upah Kerja</th>
+                                            <th class="small text-muted fw-bold text-end border-0 py-2 px-3">Untung Toko</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="border-top-0">
+                                        @forelse($admin_teknisi_stats as $stat)
+                                        <tr>
+                                            <td class="py-2 px-3 fw-bold text-dark" style="font-size: 0.85rem;">{{ $stat['nama'] }}</td>
+                                            <td class="py-2 px-3 text-center text-warning fw-bold" style="font-size: 0.85rem;">{{ $stat['proses'] }}</td>
+                                            <td class="py-2 px-3 text-center text-success fw-bold" style="font-size: 0.85rem;">{{ $stat['selesai'] }}</td>
+                                            <td class="py-2 px-3 text-end text-primary fw-medium" style="font-size: 0.85rem;">Rp {{ number_format($stat['upah'], 0, ',', '.') }}</td>
+                                            <td class="py-2 px-3 text-end text-success fw-bold" style="font-size: 0.85rem;">Rp {{ number_format($stat['toko'], 0, ',', '.') }}</td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted small">Belum ada data teknisi yang tercatat.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Chart.js and Custom Script -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -558,6 +613,57 @@
         // Init
         fetchData('hari');
 
+        // Chart untuk Kinerja Servis Teknisi (Admin & Kasir)
+        const tekAdminCtx = document.getElementById('teknisiAdminChart').getContext('2d');
+        const adminTeknisiData = @json($admin_teknisi_stats);
+        
+        const labelsTeknisi = adminTeknisiData.map(item => item.nama);
+        const prosesTeknisi = adminTeknisiData.map(item => item.proses);
+        const selesaiTeknisi = adminTeknisiData.map(item => item.selesai);
+
+        new Chart(tekAdminCtx, {
+            type: 'bar',
+            data: {
+                labels: labelsTeknisi,
+                datasets: [
+                    {
+                        label: 'Sedang Diproses',
+                        data: prosesTeknisi,
+                        backgroundColor: '#ffc107',
+                        borderRadius: 5,
+                    },
+                    {
+                        label: 'Selesai / Diambil',
+                        data: selesaiTeknisi,
+                        backgroundColor: '#198754',
+                        borderRadius: 5,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: "'Inter', sans-serif", weight: 'bold', size: 11 },
+                            usePointStyle: true
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                        ticks: { stepSize: 1, precision: 0 }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
 
     });
     </script>
