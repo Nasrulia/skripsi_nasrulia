@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     $this->call([
         AturanChatbotSeeder::class,
         KomponenRakitanSeeder::class,
+        ProdukAsusSeeder::class,
     ]);
 
     User::firstOrCreate(
