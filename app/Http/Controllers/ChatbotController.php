@@ -18,7 +18,111 @@ class ChatbotController extends Controller
         // --- 0. CEK SESSION FLOW ---
         $flow = session('chatbot_flow');
 
-        // --- 0.0 CEK SESSION FLOW UNTUK RAKIT PC ---
+        // --- 0.0 CEK SESSION FLOW UNTUK KONSULTASI PRODUK / LAPTOP ---
+        if ($flow && str_starts_with($flow, 'product_consult_')) {
+            if ($pesan_user === 'batal' || $pesan_user === 'cancel' || $pesan_user === 'keluar') {
+                session()->forget([
+                    'chatbot_flow',
+                    'product_consult_item',
+                    'product_consult_budget',
+                    'product_consult_purpose',
+                    'product_consult_specs',
+                ]);
+                $jawaban_bot = "Proses konsultasi pencarian produk telah dibatalkan. Ada hal lain yang bisa saya bantu?";
+                return response()->json([
+                    'jawaban' => $jawaban_bot,
+                    'rekomendasi_produk' => collect(),
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+
+            if ($flow === 'product_consult_waiting_budget') {
+                $budget = $this->parseBudget($request->pesan);
+                if ($budget <= 0) {
+                    $jawaban_bot = "Format budget tidak valid. Silakan masukkan angka nominal budget Anda (contoh: **5000000**, **7.5 juta**, atau **5-8 juta**), atau ketik **batal** untuk keluar.";
+                    return response()->json([
+                        'jawaban' => $jawaban_bot,
+                        'rekomendasi_produk' => collect(),
+                        'rekomendasi_jasa' => collect(),
+                    ]);
+                }
+
+                session([
+                    'product_consult_budget' => $budget,
+                    'chatbot_flow' => 'product_consult_waiting_purpose'
+                ]);
+
+                $item = session('product_consult_item', 'laptop / barang');
+                $budget_formatted = number_format($budget, 0, ',', '.');
+                $jawaban_bot = "Budget Anda sebesar **Rp {$budget_formatted}** telah dicatat. 👍\n\nSelanjutnya, untuk **penggunaan / kebutuhan utama** apa {$item} ini dicari?\n1. **Sekolah / Office / Harian** (Pengetikan, Zoom, Browsing, Admin toko)\n2. **Gaming** (Bermain game PC/Online)\n3. **Editing / Desain / Rendering / Coding** (Edit video, Photoshop, Pemrograman)\n\nSilakan pilih atau ketik kebutuhan Anda (contoh: **Office**, **Gaming**, atau **Editing**).";
+                return response()->json([
+                    'jawaban' => $jawaban_bot,
+                    'rekomendasi_produk' => collect(),
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+
+            if ($flow === 'product_consult_waiting_purpose') {
+                $purpose = 'Umum / Harian';
+                if (str_contains($pesan_user, 'office') || str_contains($pesan_user, 'sekolah') || str_contains($pesan_user, 'kerja') || str_contains($pesan_user, 'tulis') || str_contains($pesan_user, 'admin') || str_contains($pesan_user, 'zoom') || $pesan_user === '1') {
+                    $purpose = 'Sekolah / Office / Harian';
+                } elseif (str_contains($pesan_user, 'game') || str_contains($pesan_user, 'gaming') || $pesan_user === '2') {
+                    $purpose = 'Gaming';
+                } elseif (str_contains($pesan_user, 'edit') || str_contains($pesan_user, 'render') || str_contains($pesan_user, 'desain') || str_contains($pesan_user, 'design') || str_contains($pesan_user, 'coding') || str_contains($pesan_user, 'program') || $pesan_user === '3') {
+                    $purpose = 'Editing / Desain';
+                } else {
+                    $purpose = $request->pesan;
+                }
+
+                session([
+                    'product_consult_purpose' => $purpose,
+                    'chatbot_flow' => 'product_consult_waiting_specs'
+                ]);
+
+                $jawaban_bot = "Kebutuhan utama: **{$purpose}**.\n\nApakah Anda memiliki **preferensi spesifikasi atau merk tertentu** yang dicari?\n_(Contoh: **ASUS**, **Lenovo**, **Acer**, **Intel Core i3/i5**, **AMD Ryzen**, **RAM 8GB**, **SSD 512GB**, atau ketik **Bebas** jika menyerahkan rekomendasi terbaik pada kami)_";
+                return response()->json([
+                    'jawaban' => $jawaban_bot,
+                    'rekomendasi_produk' => collect(),
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+
+            if ($flow === 'product_consult_waiting_specs') {
+                $specs = $request->pesan;
+                $item = session('product_consult_item', 'laptop');
+                $budget = session('product_consult_budget', 0);
+                $purpose = session('product_consult_purpose', 'Umum');
+
+                $consult_result = $this->generateProductConsultationResult($item, $budget, $purpose, $specs);
+
+                session()->forget([
+                    'chatbot_flow',
+                    'product_consult_item',
+                    'product_consult_budget',
+                    'product_consult_purpose',
+                    'product_consult_specs',
+                ]);
+
+                try {
+                    ChatbotLog::create([
+                        'user_id' => Auth::id(),
+                        'pesan' => "Konsultasi {$item}: Budget {$budget}, Purpose {$purpose}, Specs {$specs}",
+                        'jawaban' => $consult_result['jawaban'],
+                        'kategori' => 'konsultasi_produk',
+                    ]);
+                } catch (\Exception $e) {
+                    // Abaikan
+                }
+
+                return response()->json([
+                    'jawaban' => $consult_result['jawaban'],
+                    'rekomendasi_produk' => $consult_result['rekomendasi_produk'],
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+        }
+
+        // --- 0.0.1 CEK SESSION FLOW UNTUK RAKIT PC ---
         if ($flow && str_starts_with($flow, 'rakit_pc_')) {
             if ($pesan_user === 'batal' || $pesan_user === 'cancel' || $pesan_user === 'keluar') {
                 session()->forget([
@@ -317,6 +421,64 @@ class ChatbotController extends Controller
             ]);
         }
         
+        // --- 0.1 CEK APAKAH INPUT BARU MEMICU ALUR KONSULTASI LAPTOP / BARANG ---
+        $keywords_product_consult = [
+            'harga laptop', 'cari laptop', 'rekomendasi laptop', 'laptop murah', 'pilihan laptop', 
+            'tanya laptop', 'konsultasi laptop', 'laptop ready', 'ada laptop', 'laptop apa',
+            'list laptop', 'daftar laptop', 'katalog laptop', 'tipe laptop', 'spesifikasi laptop', 'laptop apa saja',
+            'harga barang', 'rekomendasi barang', 'cari barang', 'tanya harga', 'harga produk', 
+            'rekomendasi produk', 'konsultasi produk', 'harga notebook', 'cari notebook',
+            'list barang', 'daftar barang', 'katalog barang', 'list produk', 'daftar produk', 'katalog produk'
+        ];
+        
+        $is_product_consult = false;
+        $consult_item = 'laptop';
+        
+        foreach ($keywords_product_consult as $kpc) {
+            if (str_contains($pesan_user, $kpc)) {
+                $is_product_consult = true;
+                if (!str_contains($kpc, 'laptop') && !str_contains($kpc, 'notebook')) {
+                    $consult_item = 'barang / produk';
+                }
+                break;
+            }
+        }
+
+        if (!$is_product_consult) {
+            $is_asking_price = str_contains($pesan_user, 'harga') || str_contains($pesan_user, 'berapa') || str_contains($pesan_user, 'rekomendasi') || str_contains($pesan_user, 'list') || str_contains($pesan_user, 'daftar') || str_contains($pesan_user, 'katalog') || str_contains($pesan_user, 'pilihan') || str_contains($pesan_user, 'tipe');
+            $is_asking_laptop = str_contains($pesan_user, 'laptop') || str_contains($pesan_user, 'notebook') || str_contains($pesan_user, 'leptop');
+            if ($is_asking_price && $is_asking_laptop) {
+                $is_product_consult = true;
+                $consult_item = 'laptop';
+            }
+        }
+
+        if ($is_product_consult) {
+            session([
+                'chatbot_flow' => 'product_consult_waiting_budget',
+                'product_consult_item' => $consult_item
+            ]);
+
+            $jawaban_bot = "Halo! Saya siap membantu Anda memilih **{$consult_item}** yang paling tepat dan sesuai dengan kebutuhan Anda. 😊\n\nUntuk memberikan rekomendasi terbaik, silakan masukkan **kisaran budget / harga maksimal** yang Anda siapkan (contoh: **5000000**, **7.5 juta**, atau **5-8 juta**):\n_(Ketik **batal** jika ingin keluar)_";
+
+            try {
+                ChatbotLog::create([
+                    'user_id' => Auth::id(),
+                    'pesan' => $request->pesan,
+                    'jawaban' => $jawaban_bot,
+                    'kategori' => 'konsultasi_produk',
+                ]);
+            } catch (\Exception $e) {
+                // Abaikan
+            }
+
+            return response()->json([
+                'jawaban' => $jawaban_bot,
+                'rekomendasi_produk' => collect(),
+                'rekomendasi_jasa' => collect(),
+            ]);
+        }
+
         // --- 0.2 CEK APAKAH INPUT BARU MEMICU ALUR RAKIT PC ---
         $keywords_rakit = ['rakit', 'rakitan', 'merakit', 'build pc', 'build komputer', 'rekomendasi pc', 'spesifikasi pc', 'cpu rakitan'];
         $is_rakit = false;
@@ -518,12 +680,18 @@ class ChatbotController extends Controller
 
         if ($topMatch && $topMatch['score'] >= 30) {
             $topScore = $topMatch['score'];
-            // Ambil semua produk yang skornya mendekati skor tertinggi (maks selisih 20 poin)
-            $matchedProducts = $scoredProducts->filter(function($sp) use ($topScore) {
-                return $sp['score'] >= ($topScore - 20) && $sp['score'] >= 30;
-            })->map(function($sp) {
-                return $sp['product'];
-            })->take(5)->values();
+            $secondMatch = $scoredProducts->skip(1)->first();
+            $secondScore = $secondMatch ? $secondMatch['score'] : 0;
+
+            if ($secondMatch && ($topScore - $secondScore >= 15)) {
+                $matchedProducts = collect([$topMatch['product']]);
+            } else {
+                $matchedProducts = $scoredProducts->filter(function($sp) use ($topScore) {
+                    return $sp['score'] >= ($topScore - 20) && $sp['score'] >= 30;
+                })->map(function($sp) {
+                    return $sp['product'];
+                })->take(5)->values();
+            }
         }
 
         if ($matchedProducts->isNotEmpty()) {
@@ -788,6 +956,15 @@ class ChatbotController extends Controller
         // Abaikan kecocokan fuzzy jika kata terlalu pendek (menghindari false positive pada kata-kata 1-2 huruf)
         if ($len1 < 3 || $len2 < 3) {
             return false;
+        }
+
+        // Jika kedua kata mengandung angka (misal kode model L3210 vs L3211), angkanya harus persis sama
+        if (preg_match('/[0-9]/', $w1) && preg_match('/[0-9]/', $w2)) {
+            preg_match_all('/[0-9]+/', $w1, $m1);
+            preg_match_all('/[0-9]+/', $w2, $m2);
+            if ($m1[0] !== $m2[0]) {
+                return false;
+            }
         }
 
         // Hitung jarak Levenshtein
@@ -1361,6 +1538,128 @@ class ChatbotController extends Controller
         return [
             'jawaban' => $jawaban,
             'rekomendasi_produk' => $recommendedProducts->unique('id')->values(),
+        ];
+    }
+
+    /**
+     * Menghasilkan rekomendasi produk (laptop / barang) hasil dari konsultasi interaktif.
+     */
+    private function generateProductConsultationResult($item, $budget, $purpose, $specs)
+    {
+        $allProducts = Produk::with('kategori')->get();
+        
+        $isLaptop = ($item === 'laptop') || str_contains(strtolower($specs), 'laptop') || str_contains(strtolower($item), 'laptop');
+        
+        $filteredProducts = $allProducts->filter(function($product) use ($isLaptop, $budget) {
+            $katName = strtolower($product->kategori->nama_kategori ?? '');
+            $prodName = strtolower($product->nama_produk);
+            
+            if ($isLaptop) {
+                $isLaptopProduct = str_contains($katName, 'laptop') || str_contains($prodName, 'laptop') || str_contains($prodName, 'notebook');
+                if (!$isLaptopProduct) {
+                    return false;
+                }
+            }
+            
+            if ($budget > 0) {
+                $maxPrice = $budget * 1.10;
+                if ($product->harga_jual > $maxPrice) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        if ($filteredProducts->isEmpty()) {
+            $filteredProducts = $allProducts->filter(function($product) use ($isLaptop) {
+                $katName = strtolower($product->kategori->nama_kategori ?? '');
+                $prodName = strtolower($product->nama_produk);
+                if ($isLaptop) {
+                    return str_contains($katName, 'laptop') || str_contains($prodName, 'laptop') || str_contains($prodName, 'notebook');
+                }
+                return true;
+            });
+        }
+
+        $purposeLower = strtolower($purpose);
+        $specsLower = strtolower($specs);
+        $stopWords = ['dan', 'yang', 'dengan', 'untuk', 'dari', 'atau', 'di', 'ke', 'ini', 'itu', 'bebas', 'apa', 'saja', 'ada', 'mau', 'cari'];
+        $specKeywords = $this->extractKeywords($specsLower, $stopWords);
+
+        $scored = $filteredProducts->map(function($product) use ($budget, $purposeLower, $specsLower, $specKeywords) {
+            $score = 0;
+            $prodName = strtolower($product->nama_produk);
+            $prodDesc = strtolower($product->deskripsi ?? '');
+            $merk = strtolower($product->merk ?? '');
+            $fullText = $prodName . ' ' . $prodDesc . ' ' . $merk;
+
+            if ($budget > 0 && $product->harga_jual <= $budget) {
+                $ratio = $product->harga_jual / $budget;
+                $score += $ratio * 40;
+            }
+
+            if (str_contains($purposeLower, 'game') || str_contains($purposeLower, 'gaming')) {
+                if (str_contains($fullText, 'gaming') || str_contains($fullText, 'rtx') || str_contains($fullText, 'gtx') || str_contains($fullText, 'ryzen 5') || str_contains($fullText, 'ryzen 7') || str_contains($fullText, 'i5') || str_contains($fullText, 'i7')) {
+                    $score += 30;
+                }
+            } elseif (str_contains($purposeLower, 'edit') || str_contains($purposeLower, 'desain') || str_contains($purposeLower, 'render') || str_contains($purposeLower, 'coding')) {
+                if (str_contains($fullText, '512gb') || str_contains($fullText, '16gb') || str_contains($fullText, 'ips') || str_contains($fullText, 'fhd') || str_contains($fullText, 'i5') || str_contains($fullText, 'ryzen 5')) {
+                    $score += 30;
+                }
+            } elseif (str_contains($purposeLower, 'office') || str_contains($purposeLower, 'sekolah') || str_contains($purposeLower, 'harian') || str_contains($purposeLower, 'admin')) {
+                if (str_contains($fullText, 'i3') || str_contains($fullText, 'ryzen 3') || str_contains($fullText, 'n4020') || str_contains($fullText, 'ohs') || str_contains($fullText, 'office') || str_contains($fullText, '8gb')) {
+                    $score += 30;
+                }
+            }
+
+            foreach ($specKeywords as $kw) {
+                if (str_contains($fullText, $kw)) {
+                    $score += 20;
+                }
+            }
+
+            if ($product->stok > 0) {
+                $score += 10;
+            }
+
+            return [
+                'product' => $product,
+                'score' => $score,
+            ];
+        })->sortByDesc('score');
+
+        $topProducts = $scored->take(5)->pluck('product')->values();
+
+        $budgetFormatted = number_format($budget, 0, ',', '.');
+        $jawaban = "### 💻 REKOMENDASI PRODUK HASIL KONSULTASI\n\n";
+        $jawaban .= "Berikut adalah pilihan produk yang paling sesuai dengan kriteria yang Anda cari:\n";
+        $jawaban .= "* 💰 **Target Budget:** Rp {$budgetFormatted}\n";
+        $jawaban .= "* 🎯 **Kebutuhan Utama:** {$purpose}\n";
+        $jawaban .= "* ⚙️ **Preferensi Spesifikasi/Merk:** {$specs}\n\n";
+        $jawaban .= "---------------------------------------------\n";
+
+        if ($topProducts->isNotEmpty()) {
+            $jawaban .= "📋 **Daftar Pilihan Produk Terbaik:**\n\n";
+            foreach ($topProducts as $p) {
+                $harga = number_format($p->harga_jual, 0, ',', '.');
+                $stokStatus = $p->stok > 0 ? "Ready Stock" : "Stok Habis";
+                $jawaban .= "🔹 **{$p->nama_produk}**\n";
+                $jawaban .= "   • Harga: **Rp {$harga}** &bull; Status: **{$stokStatus}**\n";
+                if ($p->deskripsi) {
+                    $shortDesc = strlen($p->deskripsi) > 120 ? substr($p->deskripsi, 0, 120) . '...' : $p->deskripsi;
+                    $jawaban .= "   • Spec: {$shortDesc}\n";
+                }
+                $jawaban .= "\n";
+            }
+            $jawaban .= "Anda dapat mengklik nama produk di bawah ini untuk melihat detail lengkap atau melakukan pemesanan di Katalog kami.";
+        } else {
+            $jawaban .= "Saat ini kami belum menemukan produk yang 100% pas dengan seluruh kriteria di atas di stok toko. Silakan konsultasikan langsung ke customer service kami atau sesuaikan kriteria budget/spesifikasi Anda.";
+        }
+
+        return [
+            'jawaban' => $jawaban,
+            'rekomendasi_produk' => $topProducts,
         ];
     }
 }

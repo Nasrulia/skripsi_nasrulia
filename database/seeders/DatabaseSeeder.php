@@ -14,6 +14,11 @@ class DatabaseSeeder extends Seeder
         AturanChatbotSeeder::class,
         KomponenRakitanSeeder::class,
         ProdukAsusSeeder::class,
+        ProdukLenovoSeeder::class,
+        ProdukAcerSeeder::class,
+        ProdukAxiooSeeder::class,
+        ProdukAdvanSeeder::class,
+        ProdukPrinterSeeder::class,
     ]);
 
     User::firstOrCreate(

@@ -17,8 +17,9 @@ class ChatbotPCBuilderTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Seed rakitan components
+        // Seed rakitan components dan aturan chatbot
         $this->seed(\Database\Seeders\KomponenRakitanSeeder::class);
+        $this->seed(\Database\Seeders\AturanChatbotSeeder::class);
     }
 
     /**
