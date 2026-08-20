@@ -32,6 +32,11 @@ class Transaksi extends Model
         'estimasi_diambil',
         'nominal_dp',
         'batas_waktu_pengambilan',
+        'is_reminded_15m',
+    ];
+
+    protected $casts = [
+        'is_reminded_15m' => 'boolean',
     ];
 
     public function detail(): HasMany

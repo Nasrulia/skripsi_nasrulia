@@ -54,6 +54,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/transaksi/konfirmasi/{id}', [App\Http\Controllers\TransaksiController::class, 'konfirmasi'])->name('transaksi.konfirmasi');
         Route::get('/transaksi/invoice/{id}', [App\Http\Controllers\TransaksiController::class, 'invoice'])->name('transaksi.invoice');
         Route::post('/transaksi/update-resi/{id}', [App\Http\Controllers\TransaksiController::class, 'updateResi'])->name('transaksi.update-resi');
+
+        // Notifikasi Admin & Kasir
+        Route::post('/notifikasi/read/{id}', [App\Http\Controllers\NotifikasiController::class, 'markAsRead'])->name('notifikasi.read');
+        Route::post('/notifikasi/read-all', [App\Http\Controllers\NotifikasiController::class, 'markAllAsRead'])->name('notifikasi.read-all');
     });
 
     // 3. TEKNISI: Manajemen Servis

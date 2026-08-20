@@ -44,8 +44,8 @@ class AturanChatbotSeeder extends Seeder
                 'updated_at' => '2026-03-19 16:20:12',
             ],
             [
-                'kata_kunci' => 'keyboard, kibot, tombol',
-                'jawaban' => 'Tombol keyboard error, mengetik sendiri, atau kamu lagi cari keyboard mechanical yang empuk buat ngetik? Kami punya sparepart dan aksesorisnya. Cek rekomendasi berikut:',
+                'kata_kunci' => 'keyboard, kibot, tombol, mouse, tetikus, mos, sepaket keyboard mouse',
+                'jawaban' => 'Lagi cari keyboard, mouse ergonomis/silent, atau paket combo keyboard & mouse? Kami menyediakan berbagai aksesoris berkualitas dari Logitech, Robot, Rexus, dan Fantech. Cek rekomendasi berikut:',
                 'created_at' => '2026-03-19 16:20:12',
                 'updated_at' => '2026-03-19 16:20:12',
             ],
@@ -93,7 +93,7 @@ class AturanChatbotSeeder extends Seeder
             ],
             [
                 'kata_kunci' => 'desain, editing, autocad, photoshop',
-                'jawaban' => 'Membutuhkan perangkat atau software untuk kebutuhan desain grafis, arsitektur, atau editing video? Kami bisa bantu instalkan aplikasinya, atau merekomendasikan monitor dengan warna yang pas:',
+                'jawaban' => "Membutuhkan laptop atau perangkat untuk kebutuhan desain grafis, arsitektur, atau editing video?\n\n💡 **Rekomendasi Spesifikasi:**\n- **Processor:** Sangat disarankan menggunakan laptop dengan processor minimal **AMD Ryzen 3** atau **Intel Core i3** ke atas (seperti Ryzen 3/5/7 atau Core i3/i5/i7).\n- **Catatan:** Processor di bawah Core i3 (seperti Celeron/Pentium/N4020) **kurang disarankan** untuk kebutuhan editing atau desain grafis yang berat.\n- **RAM & Storage:** Minimal RAM 8GB dan SSD 512GB agar pengerjaan desain/render lancar.\n\nKami juga menyediakan layanan instalasi software dan berbagai pilihan laptop/PC yang cocok untuk kebutuhan Anda. Berikut beberapa rekomendasi produk dan layanan terkait:",
                 'created_at' => '2026-03-19 16:20:12',
                 'updated_at' => '2026-03-19 16:20:12',
             ],
@@ -110,8 +110,14 @@ class AturanChatbotSeeder extends Seeder
                 'updated_at' => '2026-03-19 16:20:12',
             ],
             [
-                'kata_kunci' => 'lokasi, alamat, peta, map, jalan',
-                'jawaban' => 'Toko Nusantara Jaya Computer berlokasi strategis di Banjarmasin. Silakan mampir langsung ke toko kami untuk melihat produk atau konsultasi servis langsung dengan teknisi kami ya!',
+                'kata_kunci' => 'lokasi, alamat, peta, map, maps, toko offline, offline, google maps, gmaps, cabang, letak toko, tempat',
+                'jawaban' => "Anda dapat mengunjungi toko offline kami **Nusantara Jaya Computer** di lokasi berikut:\n\n📍 **Google Maps Toko Offline:**\nhttps://share.google/xrwq12yHe0uMzcoFv\n\n📱 **Nomor WhatsApp Toko:**\n- 0851-8239-2525\n- 0851-8239-2526\n\nSilakan mampir langsung ke toko kami atau hubungi kami melalui WhatsApp jika ada pertanyaan lebih lanjut!",
+                'created_at' => '2026-03-19 16:20:12',
+                'updated_at' => '2026-03-19 16:20:12',
+            ],
+            [
+                'kata_kunci' => 'whatsapp, wa, kontak, nomor wa, no wa, nomor whatsapp, hubungi, contact, telepon, no hp',
+                'jawaban' => "Anda dapat menghubungi toko offline kami **Nusantara Jaya Computer** melalui nomor WhatsApp berikut:\n\n📱 **Nomor WhatsApp Toko:**\n- 0851-8239-2525\n- 0851-8239-2526\n\n📍 **Lokasi Toko Offline (Google Maps):**\nhttps://share.google/xrwq12yHe0uMzcoFv\n\nKami siap membantu Anda!",
                 'created_at' => '2026-03-19 16:20:12',
                 'updated_at' => '2026-03-19 16:20:12',
             ],

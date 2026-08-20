@@ -112,7 +112,7 @@
 
                     <div id="formPengiriman" style="display: none;">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Pilih Ekspedisi</label>
+                            <label class="form-label fw-semibold"><i class="bi bi-truck me-1"></i> Pilih Ekspedisi</label>
                             <select name="ekspedisi_id" class="form-select form-select-lg" id="ekspedisiSelect" onchange="hitungOngkir()">
                                 <option value="">-- Pilih Ekspedisi --</option>
                                 @foreach($ekspedisi as $e)
@@ -120,24 +120,55 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Jarak (km)</label>
-                            <input type="number" name="jarak_km" id="jarakKm" class="form-control form-control-lg bg-light" placeholder="Jarak dihitung otomatis dari peta..." min="0" step="0.01" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold text-primary"><i class="bi bi-map-fill me-1"></i> Tentukan Lokasi Pengiriman di Peta</label>
-                            <div class="input-group mb-2">
-                                <input type="text" id="alamatSearch" class="form-control" placeholder="Cari jalan, kelurahan, atau daerah di Banjarmasin...">
-                                <button type="button" class="btn btn-primary" onclick="cariAlamat()">
-                                    <i class="bi bi-search"></i> Cari
+
+                        <!-- Langkah 1: Cari Alamat -->
+                        <div class="mb-3 position-relative">
+                            <label class="form-label fw-semibold text-primary">
+                                <span class="badge bg-primary me-1">Langkah 1</span> <i class="bi bi-search me-1"></i> Cari Alamat / Lokasi Pengiriman
+                            </label>
+                            <div class="input-group">
+                                <input type="text" id="alamatSearch" class="form-control form-control-lg" placeholder="Ketik jalan, komplek, kelurahan, atau patokan di Banjarmasin..." onkeydown="handleSearchKeydown(event)" oninput="handleSearchInput()">
+                                <button type="button" class="btn btn-primary px-4 fw-bold" onclick="cariAlamat()">
+                                    <i class="bi bi-search me-1"></i> Cari
                                 </button>
                             </div>
-                            <div id="map" class="rounded border shadow-sm mb-2" style="height: 300px; z-index: 1;"></div>
-                            <small class="text-muted"><i class="bi bi-info-circle-fill me-1"></i> Geser penanda merah ke lokasi Anda. Jarak & ongkir akan dihitung otomatis.</small>
+                            <!-- Autocomplete Suggestions List -->
+                            <div id="searchResultsList" class="list-group position-absolute w-100 shadow-lg rounded-3 mt-1" style="z-index: 1050; display: none; max-height: 250px; overflow-y: auto;">
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-lightbulb me-1 text-warning"></i> Ketik nama jalan/daerah lalu tekan Enter atau pilih dari opsi lokasi yang muncul.
+                            </small>
                         </div>
+
+                        <!-- Langkah 2: Sesuaikan Titik di Peta -->
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Alamat Pengiriman</label>
-                            <textarea name="alamat_pengiriman" id="alamatPengiriman" class="form-control" rows="3" placeholder="Masukkan alamat lengkap detail (RT/RW, No. Rumah)..."></textarea>
+                            <label class="form-label fw-semibold text-primary">
+                                <span class="badge bg-primary me-1">Langkah 2</span> <i class="bi bi-pin-map-fill me-1"></i> Sesuaikan Titik di Peta
+                            </label>
+                            <div id="searchFeedback" class="alert alert-success py-2 px-3 small mb-2 rounded-3" style="display: none;">
+                                <i class="bi bi-check-circle-fill me-1"></i> <span id="searchFeedbackText"></span>
+                            </div>
+                            <div id="map" class="rounded-3 border shadow-sm mb-2" style="height: 320px; z-index: 1;"></div>
+                            <small class="text-muted"><i class="bi bi-info-circle-fill me-1"></i> Geser penanda merah ke posisi tepat rumah/bangunan Anda. Jarak & ongkir akan menyesuaikan.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Jarak Dihitung dari Toko (km)</label>
+                            <div class="input-group">
+                                <input type="number" name="jarak_km" id="jarakKm" class="form-control form-control-lg bg-light fw-bold text-primary" placeholder="Pilih titik lokasi di peta..." min="0" step="0.01" readonly>
+                                <span class="input-group-text bg-light text-muted fw-semibold">km</span>
+                            </div>
+                        </div>
+
+                        <!-- Langkah 3: Detail Alamat -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold text-primary">
+                                <span class="badge bg-primary me-1">Langkah 3</span> <i class="bi bi-house-door-fill me-1"></i> Detail Alamat Pengiriman Lengkap
+                            </label>
+                            <div class="alert alert-info py-2 px-3 small mb-2 border-0 rounded-3">
+                                <i class="bi bi-info-circle-fill me-1"></i> <strong>Petunjuk Detail Alamat:</strong> Mohon berikan alamat selengkap mungkin (seperti No. Rumah, RT/RW, Warna Pagar, Nama Gang, atau Patokan terdekat) agar memudahkan kurir menemukan lokasi Anda.
+                            </div>
+                            <textarea name="alamat_pengiriman" id="alamatPengiriman" class="form-control" rows="3" placeholder="Masukkan alamat lengkap detail (RT/RW, No. Rumah, Patokan)..."></textarea>
                         </div>
                     </div>
 
@@ -271,6 +302,152 @@
         }
     }
 
+    var searchDebounceTimer = null;
+
+    function handleSearchKeydown(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            cariAlamat();
+        }
+    }
+
+    function handleSearchInput() {
+        clearTimeout(searchDebounceTimer);
+        var query = document.getElementById('alamatSearch').value.trim();
+        var resultsList = document.getElementById('searchResultsList');
+
+        if (query.length < 3) {
+            resultsList.style.display = 'none';
+            resultsList.innerHTML = '';
+            return;
+        }
+
+        searchDebounceTimer = setTimeout(function() {
+            fetchSearchResults(query);
+        }, 350);
+    }
+
+    async function executeAddressSearch(query) {
+        var items = [];
+        var latToko = koordinatToko[0];
+        var lonToko = koordinatToko[1];
+
+        // Tier 1: Photon API (Fuzzy search & location bias di Banjarmasin)
+        try {
+            var res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lat=${latToko}&lon=${lonToko}&limit=5`);
+            var data = await res.json();
+            if (data && data.features && data.features.length > 0) {
+                items = data.features.map(f => {
+                    var props = f.properties;
+                    var nameParts = [props.name, props.street, props.district, props.city || props.county, props.state].filter(Boolean);
+                    var uniqueParts = Array.from(new Set(nameParts));
+                    return {
+                        lat: f.geometry.coordinates[1],
+                        lon: f.geometry.coordinates[0],
+                        display_name: uniqueParts.join(', ')
+                    };
+                });
+            }
+        } catch (e) {
+            console.log('Photon error:', e);
+        }
+
+        // Tier 2: Nominatim API (jika Photon kosong)
+        if (items.length === 0) {
+            try {
+                var searchQuery = query;
+                if (!query.toLowerCase().includes('banjarmasin')) {
+                    searchQuery += ' Banjarmasin';
+                }
+                var res2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1`);
+                var data2 = await res2.json();
+                if (data2 && data2.length > 0) {
+                    items = data2.map(d => ({
+                        lat: parseFloat(d.lat),
+                        lon: parseFloat(d.lon),
+                        display_name: d.display_name
+                    }));
+                }
+            } catch (e) {
+                console.log('Nominatim error:', e);
+            }
+        }
+
+        // Tier 3: Pembersihan prefix kata (Komplek/Jl/Gang) jika masih kosong
+        if (items.length === 0) {
+            try {
+                var cleanQ = query.replace(/^(komplek|kompleks|perum|perumahan|jl|jalan|gg|gang)\s+/i, '').trim();
+                if (cleanQ !== query && cleanQ.length >= 3) {
+                    var res3 = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQ)}&lat=${latToko}&lon=${lonToko}&limit=5`);
+                    var data3 = await res3.json();
+                    if (data3 && data3.features && data3.features.length > 0) {
+                        items = data3.features.map(f => {
+                            var props = f.properties;
+                            var nameParts = [props.name, props.street, props.district, props.city || props.county, props.state].filter(Boolean);
+                            var uniqueParts = Array.from(new Set(nameParts));
+                            return {
+                                lat: f.geometry.coordinates[1],
+                                lon: f.geometry.coordinates[0],
+                                display_name: uniqueParts.join(', ')
+                            };
+                        });
+                    }
+                }
+            } catch (e) {}
+        }
+
+        return items;
+    }
+
+    async function fetchSearchResults(query) {
+        var resultsList = document.getElementById('searchResultsList');
+        var items = await executeAddressSearch(query);
+
+        resultsList.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'list-group-item list-group-item-action py-2 text-start small';
+                button.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-2"></i> ${item.display_name}`;
+                button.onclick = function() {
+                    pilihLokasiHasilPencarian(item.lat, item.lon, item.display_name);
+                };
+                resultsList.appendChild(button);
+            });
+            resultsList.style.display = 'block';
+        } else {
+            resultsList.style.display = 'none';
+        }
+    }
+
+    function pilihLokasiHasilPencarian(latStr, lonStr, displayName) {
+        var lat = parseFloat(latStr);
+        var lon = parseFloat(lonStr);
+
+        document.getElementById('searchResultsList').style.display = 'none';
+
+        if (!map) initMap();
+        map.setView([lat, lon], 16);
+        markerPelanggan.setLatLng([lat, lon]);
+
+        var jarak = getDistanceFromLatLonInKm(koordinatToko[0], koordinatToko[1], lat, lon);
+        document.getElementById('jarakKm').value = jarak.toFixed(2);
+        hitungOngkir();
+
+        // Isi alamat dari hasil pencarian
+        document.getElementById('alamatPengiriman').value = displayName;
+
+        // Feedback informatif
+        var feedback = document.getElementById('searchFeedback');
+        var feedbackText = document.getElementById('searchFeedbackText');
+        if (feedback && feedbackText) {
+            feedback.className = 'alert alert-success py-2 px-3 small mb-2 rounded-3';
+            feedbackText.innerHTML = `Lokasi ditemukan! Anda dapat menggeser pin merah di peta di bawah jika ingin menyesuaikan posisi tepat rumah/bangunan.`;
+            feedback.style.display = 'block';
+        }
+    }
+
     function initMap() {
         if (map) {
             map.invalidateSize();
@@ -310,59 +487,68 @@
                 shadowSize: [41, 41]
             })
         }).addTo(map)
-        .bindPopup("<b>Lokasi Pengiriman Anda</b><br>Geser ke alamat rumah Anda.")
+        .bindPopup("<b>Lokasi Pengiriman Anda</b><br>Geser ke titik persis rumah Anda.")
         .openPopup();
 
         markerPelanggan.on('dragend', function(e) {
-            updateJarakDanAlamat();
+            updateJarakDanAlamat(true);
         });
 
         map.on('click', function(e) {
             markerPelanggan.setLatLng(e.latlng);
-            updateJarakDanAlamat();
+            updateJarakDanAlamat(true);
         });
     }
 
-    function updateJarakDanAlamat() {
+    function updateJarakDanAlamat(isManualPin) {
         var pos = markerPelanggan.getLatLng();
         var jarak = getDistanceFromLatLonInKm(koordinatToko[0], koordinatToko[1], pos.lat, pos.lng);
         document.getElementById('jarakKm').value = jarak.toFixed(2);
 
-        // Reverse Geocoding Nominatim
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.lat}&lon=${pos.lng}&zoom=18&addressdetails=1`)
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.display_name) {
-                    document.getElementById('alamatPengiriman').value = data.display_name;
-                }
-            })
-            .catch(err => console.log(err));
+        // Reverse Geocoding jika alamat belum terisi
+        var currentAddr = document.getElementById('alamatPengiriman').value.trim();
+        if (!currentAddr || isManualPin) {
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.lat}&lon=${pos.lng}&zoom=18&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name && !document.getElementById('alamatPengiriman').value.trim()) {
+                        document.getElementById('alamatPengiriman').value = data.display_name;
+                    }
+                })
+                .catch(err => console.log(err));
+        }
 
         hitungOngkir();
     }
 
-    function cariAlamat() {
-        var query = document.getElementById('alamatSearch').value;
+    async function cariAlamat() {
+        var query = document.getElementById('alamatSearch').value.trim();
         if (!query) return;
 
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' Banjarmasin')}&limit=1`)
-            .then(response => response.json())
-            .then(results => {
-                if (results && results.length > 0) {
-                    var lat = parseFloat(results[0].lat);
-                    var lon = parseFloat(results[0].lon);
-                    map.setView([lat, lon], 16);
-                    markerPelanggan.setLatLng([lat, lon]);
-                    updateJarakDanAlamat();
-                } else {
-                    alert('Lokasi tidak ditemukan. Coba masukkan nama jalan/kelurahan yang lebih detail.');
-                }
-            })
-            .catch(err => {
-                console.log(err);
-                alert('Pencarian gagal. Periksa koneksi internet Anda.');
-            });
+        document.getElementById('searchResultsList').style.display = 'none';
+        var feedback = document.getElementById('searchFeedback');
+        var feedbackText = document.getElementById('searchFeedbackText');
+
+        var items = await executeAddressSearch(query);
+
+        if (items && items.length > 0) {
+            pilihLokasiHasilPencarian(items[0].lat, items[0].lon, items[0].display_name);
+        } else {
+            if (feedback && feedbackText) {
+                feedback.className = 'alert alert-warning py-2 px-3 small mb-2 rounded-3';
+                feedbackText.innerHTML = `Lokasi <strong>"${query}"</strong> tidak terdaftar di peta otomatis. Silakan geser pin merah pada peta di bawah ke lokasi rumah Anda, lalu ketik detail alamat secara manual.`;
+                feedback.style.display = 'block';
+            }
+        }
     }
+
+    document.addEventListener('click', function(e) {
+        var searchInput = document.getElementById('alamatSearch');
+        var resultsList = document.getElementById('searchResultsList');
+        if (searchInput && resultsList && !searchInput.contains(e.target) && !resultsList.contains(e.target)) {
+            resultsList.style.display = 'none';
+        }
+    });
 
     function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
         var R = 6371; // Radius bumi (km)

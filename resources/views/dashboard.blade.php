@@ -23,6 +23,87 @@
         </div>
     </div>
 
+    @if(in_array(Auth::user()->peran, ['admin', 'kasir']))
+        @php
+            $dashboardNotifs = \App\Models\Notifikasi::where('is_read', false)->latest()->take(5)->get();
+        @endphp
+        @if($dashboardNotifs->isNotEmpty())
+            <div class="row mb-4" id="dashboard-notif-box">
+                <div class="col-12">
+                    <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-0">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h5 class="fw-bold text-dark mb-0">
+                                <i class="bi bi-bell-fill text-warning me-2 fs-4"></i> Notifikasi Checkout & Transaksi Terbaru
+                            </h5>
+                            <a href="{{ route('transaksi.index') }}" class="btn btn-sm btn-primary rounded-pill px-3">
+                                Lihat Semua Transaksi <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
+                        </div>
+                        <p class="text-muted small mb-3">Terdapat pesanan checkout baru atau konfirmasi dari pelanggan yang memerlukan perhatian Admin:</p>
+                        <div class="list-group list-group-flush rounded-3 border overflow-hidden">
+                            @foreach($dashboardNotifs as $dNotif)
+                                <div class="list-group-item d-flex justify-content-between align-items-center bg-white py-3" id="d-notif-item-{{ $dNotif->id }}">
+                                    <div class="d-flex align-items-center me-3">
+                                        <span class="badge {{ $dNotif->tipe === 'warning' ? 'bg-danger' : ($dNotif->tipe === 'chatbot' ? 'bg-info text-dark' : 'bg-primary') }} me-3 p-2">{{ $dNotif->judul }}</span>
+                                        <div class="fw-semibold text-dark mb-0 small">{!! Str::markdown($dNotif->pesan) !!}</div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <small class="text-muted me-2" style="font-size: 0.75rem;">{{ $dNotif->created_at->diffForHumans() }}</small>
+                                        @if($dNotif->link)
+                                            <form action="{{ route('notifikasi.read', $dNotif->id) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                <input type="hidden" name="go_to_link" value="1">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 0.75rem;">
+                                                    Buka <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                                </button>
+                                            </form>
+                                        @endif
+                                        <form action="{{ route('notifikasi.read', $dNotif->id) }}" method="POST" class="d-inline form-mark-read" data-id="{{ $dNotif->id }}">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.75rem;">
+                                                <i class="bi bi-check2-all me-1"></i> Tandai Dibaca
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.querySelectorAll('.form-mark-read').forEach(form => {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            const id = this.dataset.id;
+                            const item = document.getElementById('d-notif-item-' + id);
+                            const container = document.getElementById('dashboard-notif-box');
+                            
+                            fetch(this.action, {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                    'Accept': 'application/json'
+                                }
+                            }).then(res => res.json()).then(data => {
+                                if (item) {
+                                    item.remove();
+                                    if (container && container.querySelectorAll('.list-group-item').length === 0) {
+                                        container.remove();
+                                    }
+                                }
+                            }).catch(() => {
+                                this.submit();
+                            });
+                        });
+                    });
+                });
+            </script>
+        @endif
+    @endif
+
     @if(Auth::user()->peran == 'teknisi')
     <div class="row g-4 mb-4">
         @php

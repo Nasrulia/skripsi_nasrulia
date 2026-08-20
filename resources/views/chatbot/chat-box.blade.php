@@ -127,10 +127,32 @@
 
         // Jika ada rekomendasi Produk
         if(produk.length > 0) {
-            rekomendasiHtml += `<hr class="my-2 opacity-25"><p class="mb-2 fw-bold" style="font-size: 0.8rem;">Rekomendasi Produk (Klik untuk membeli):</p>`;
+            rekomendasiHtml += `<hr class="my-2 opacity-25"><p class="mb-2 fw-bold" style="font-size: 0.8rem;"><i class="bi bi-tags-fill me-1 text-primary"></i>Rekomendasi Produk:</p><div class="d-flex flex-column gap-2">`;
             produk.forEach(p => {
-                rekomendasiHtml += `<a href="/katalog?search=${encodeURIComponent(p.nama_produk)}" onclick="handleProductClick(event, '${p.nama_produk.replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-primary d-block text-start mb-2 rounded-3 text-truncate"><i class="bi bi-box me-1"></i> ${p.nama_produk} - Rp ${p.harga_jual.toLocaleString('id-ID')}</a>`;
+                const fotoUrl = p.foto
+                    ? `/storage/${p.foto}`
+                    : null;
+                const stokBadge = p.stok > 0
+                    ? `<span class="badge bg-success-subtle text-success" style="font-size:0.7rem;"><i class="bi bi-check-circle-fill me-1"></i>Ready Stock</span>`
+                    : `<span class="badge bg-danger-subtle text-danger" style="font-size:0.7rem;"><i class="bi bi-x-circle-fill me-1"></i>Stok Habis</span>`;
+                const fotoHtml = fotoUrl
+                    ? `<img src="${fotoUrl}" alt="${p.nama_produk}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display='none'">`
+                    : `<div style="width:52px;height:52px;background:#e9ecef;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i class="bi bi-box text-secondary" style="font-size:1.3rem;"></i></div>`;
+                const linkUrl = `/katalog?id=${p.id}`;
+                rekomendasiHtml += `
+                    <a href="${linkUrl}" onclick="handleProductClick(event, '${p.nama_produk.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-decoration-none">
+                        <div class="d-flex align-items-center gap-2 p-2 rounded-3 border" style="background:#f8f9ff;transition:background 0.15s;" onmouseover="this.style.background='#eef0ff'" onmouseout="this.style.background='#f8f9ff'">
+                            ${fotoHtml}
+                            <div style="min-width:0;flex:1;">
+                                <div class="fw-semibold text-dark" style="font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.nama_produk}</div>
+                                <div class="text-primary fw-bold" style="font-size:0.85rem;">Rp ${p.harga_jual.toLocaleString('id-ID')}</div>
+                                ${stokBadge}
+                            </div>
+                            <i class="bi bi-arrow-right-circle-fill text-primary opacity-75" style="font-size:1.2rem;flex-shrink:0;"></i>
+                        </div>
+                    </a>`;
             });
+            rekomendasiHtml += `</div>`;
         }
 
         // Jika ada rekomendasi Jasa

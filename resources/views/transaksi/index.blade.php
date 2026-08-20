@@ -499,4 +499,50 @@
         </div>
     </div>
     @endforeach
+
+    @if(request()->has('kode'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const targetKode = "{{ request('kode') }}";
+            
+            @foreach($transaksi as $t)
+                if ("{{ $t->kode_transaksi }}" === targetKode) {
+                    const tipe = "{{ $t->tipe }}";
+                    const status = "{{ $t->status }}";
+                    const modalId = "#modalDetail{{ $t->id }}";
+                    
+                    if (tipe === 'servis') {
+                        const servisTabBtn = document.getElementById('servis-tab');
+                        if (servisTabBtn) {
+                            const tab = new bootstrap.Tab(servisTabBtn);
+                            tab.show();
+                        }
+                        if (status === 'Lunas') {
+                            const lunasTabBtn = document.getElementById('pills-servis-lunas-tab');
+                            if (lunasTabBtn) { const pill = new bootstrap.Tab(lunasTabBtn); pill.show(); }
+                        }
+                    } else {
+                        const penjualanTabBtn = document.getElementById('penjualan-tab');
+                        if (penjualanTabBtn) {
+                            const tab = new bootstrap.Tab(penjualanTabBtn);
+                            tab.show();
+                        }
+                        if (status === 'Lunas') {
+                            const lunasTabBtn = document.getElementById('pills-penjualan-lunas-tab');
+                            if (lunasTabBtn) { const pill = new bootstrap.Tab(lunasTabBtn); pill.show(); }
+                        }
+                    }
+
+                    setTimeout(() => {
+                        const targetModal = document.querySelector(modalId);
+                        if (targetModal) {
+                            const modalObj = new bootstrap.Modal(targetModal);
+                            modalObj.show();
+                        }
+                    }, 200);
+                }
+            @endforeach
+        });
+    </script>
+    @endif
 </x-app-layout>

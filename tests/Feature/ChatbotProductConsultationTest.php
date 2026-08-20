@@ -113,4 +113,30 @@ class ChatbotProductConsultationTest extends TestCase
         $this->assertEquals('product_consult_waiting_budget', session('chatbot_flow'));
         $this->assertStringContainsString('kisaran budget / harga maksimal', $response->json('jawaban'));
     }
+
+    /**
+     * Test product consultation flow for editing purpose includes AMD Ryzen 3 / Core i3 recommendation.
+     */
+    public function test_product_consultation_editing_processor_recommendation(): void
+    {
+        // 1. Trigger flow
+        $this->postJson('/api/chat', ['pesan' => 'rekomendasi laptop']);
+
+        // 2. Submit budget
+        $this->postJson('/api/chat', ['pesan' => '8 juta']);
+
+        // 3. Submit purpose Editing
+        $responsePurpose = $this->postJson('/api/chat', ['pesan' => 'editing']);
+        $responsePurpose->assertStatus(200);
+        $jawabanPurpose = $responsePurpose->json('jawaban');
+        $this->assertStringContainsString('AMD Ryzen 3', $jawabanPurpose);
+        $this->assertStringContainsString('Core i3', $jawabanPurpose);
+
+        // 4. Submit specs
+        $responseSpecs = $this->postJson('/api/chat', ['pesan' => 'Ryzen 5 RAM 16GB']);
+        $responseSpecs->assertStatus(200);
+        $jawabanFinal = $responseSpecs->json('jawaban');
+        $this->assertStringContainsString('AMD Ryzen 3', $jawabanFinal);
+        $this->assertStringContainsString('Core i3', $jawabanFinal);
+    }
 }

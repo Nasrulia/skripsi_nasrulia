@@ -102,6 +102,57 @@
                 </div>
                 
                 <div class="d-flex align-items-center">
+                    @if(in_array(Auth::user()->peran, ['admin', 'kasir']))
+                        @php
+                            $unreadNotifs = \App\Models\Notifikasi::where('is_read', false)->latest()->take(10)->get();
+                            $unreadCount = \App\Models\Notifikasi::where('is_read', false)->count();
+                        @endphp
+                        <div class="dropdown me-3">
+                            <button class="btn btn-light position-relative rounded-circle shadow-sm p-2 border" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 42px; height: 42px;">
+                                <i class="bi bi-bell-fill text-dark fs-5"></i>
+                                @if($unreadCount > 0)
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger shadow-sm">
+                                        {{ $unreadCount > 99 ? '99+' : $unreadCount }}
+                                        <span class="visually-hidden">Notifikasi Unread</span>
+                                    </span>
+                                @endif
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-0" style="width: 340px; max-height: 450px; overflow-y: auto;">
+                                <div class="p-3 bg-primary text-white d-flex justify-content-between align-items-center rounded-top">
+                                    <h6 class="mb-0 fw-bold"><i class="bi bi-bell me-2"></i> Notifikasi Checkout</h6>
+                                    @if($unreadCount > 0)
+                                        <form action="{{ route('notifikasi.read-all') }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-light py-0 px-2 fw-semibold" style="font-size: 0.75rem;">Tandai Dibaca</button>
+                                        </form>
+                                    @endif
+                                </div>
+                                <div class="list-group list-group-flush">
+                                     @forelse($unreadNotifs as $notif)
+                                        <form action="{{ route('notifikasi.read', $notif->id) }}" method="POST" id="notif-form-{{ $notif->id }}">
+                                            @csrf
+                                            <input type="hidden" name="go_to_link" value="1">
+                                            <button type="submit" class="list-group-item list-group-item-action p-3 text-start border-bottom bg-light">
+                                                <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                                    <strong class="text-dark small me-2">{{ $notif->judul }}</strong>
+                                                    <small class="text-muted" style="font-size: 0.7rem;">{{ $notif->created_at->diffForHumans() }}</small>
+                                                </div>
+                                                <p class="mb-0 small text-secondary" style="font-size: 0.825rem; line-height: 1.3;">
+                                                    {!! Str::markdown($notif->pesan) !!}
+                                                </p>
+                                            </button>
+                                        </form>
+                                    @empty
+                                        <div class="p-4 text-center text-muted small">
+                                            <i class="bi bi-bell-slash fs-3 d-block mb-2 text-secondary"></i>
+                                            Belum ada notifikasi baru
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="dropdown">
                         <a class="text-decoration-none text-dark dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <div class="text-end me-3 d-none d-md-block">

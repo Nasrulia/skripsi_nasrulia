@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\AturanChatbot;
 use App\Models\Produk;
 use App\Models\ChatbotLog;
+use App\Models\Transaksi;
+use App\Models\Notifikasi;
+use App\Services\WhatsAppService;
 use Illuminate\Support\Facades\Auth;
 
 class ChatbotController extends Controller
@@ -15,8 +18,61 @@ class ChatbotController extends Controller
         $pesan_user = strtolower(trim($request->pesan));
         $kata_input = explode(' ', $pesan_user);
 
-        // --- 0. CEK SESSION FLOW ---
+        // --- CEK JIKA USER MEMASUKKAN / MENANYAKAN NOMOR TRANSAKSI (TRX-...) ---
         $flow = session('chatbot_flow');
+        if (preg_match('/TRX-[A-Z0-9_-]+/i', $request->pesan, $matches) && $flow !== 'complaint_waiting_trx') {
+            $trxCode = strtoupper($matches[0]);
+            $transaction = Transaksi::with(['user', 'detail.produk'])->where('kode_transaksi', $trxCode)->first();
+
+            if ($transaction) {
+                $totalFormatted = number_format($transaction->total_bayar, 0, ',', '.');
+                $namaPelanggan = $transaction->nama_pelanggan;
+
+                $jawaban_bot = "Halo **{$namaPelanggan}**! Pesanan Anda dengan Nomor Transaksi **{$transaction->kode_transaksi}** (Total: **Rp {$totalFormatted}**) telah tercatat di sistem kami dan **akan segera diproses oleh admin**.\n\nTerima kasih telah berbelanja di Nusantara Jaya Computer! Mohon ditunggu konfirmasi dari tim kami.";
+
+                // Buat notifikasi in-app untuk Admin
+                try {
+                    Notifikasi::create([
+                        'user_id' => null,
+                        'judul' => '🤖 Konfirmasi Checkout via Chatbot',
+                        'pesan' => "Pelanggan **{$namaPelanggan}** mengonfirmasi transaksi **{$transaction->kode_transaksi}** melalui Chatbot.",
+                        'link' => route('transaksi.index', ['kode' => $transaction->kode_transaksi]),
+                        'is_read' => false,
+                        'tipe' => 'chatbot',
+                    ]);
+
+                    // Kirim WA Notif ke Admin (0851-8239-2525)
+                    $waService = new WhatsAppService();
+                    $waService->send('0851-8239-2525', "*NUSANTARA JAYA COMPUTER*\nPelanggan *{$namaPelanggan}* mengonfirmasi transaksi *{$transaction->kode_transaksi}* via Chatbot.\nMohon segera diproses oleh Admin.");
+                } catch (\Exception $e) {
+                    // Abaikan error notifikasi
+                }
+
+                try {
+                    ChatbotLog::create([
+                        'user_id' => Auth::id(),
+                        'pesan' => $request->pesan,
+                        'jawaban' => $jawaban_bot,
+                        'kategori' => 'konfirmasi_transaksi',
+                    ]);
+                } catch (\Exception $e) {
+                    // Abaikan
+                }
+
+                return response()->json([
+                    'jawaban' => $jawaban_bot,
+                    'rekomendasi_produk' => collect(),
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            } else {
+                $jawaban_bot = "Maaf, nomor transaksi **{$trxCode}** tidak ditemukan di sistem kami. Mohon pastikan kode transaksi yang Anda masukkan sudah sesuai.";
+                return response()->json([
+                    'jawaban' => $jawaban_bot,
+                    'rekomendasi_produk' => collect(),
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+        }
 
         // --- 0.0 CEK SESSION FLOW UNTUK KONSULTASI PRODUK / LAPTOP ---
         if ($flow && str_starts_with($flow, 'product_consult_')) {
@@ -79,7 +135,11 @@ class ChatbotController extends Controller
                     'chatbot_flow' => 'product_consult_waiting_specs'
                 ]);
 
-                $jawaban_bot = "Kebutuhan utama: **{$purpose}**.\n\nApakah Anda memiliki **preferensi spesifikasi atau merk tertentu** yang dicari?\n_(Contoh: **ASUS**, **Lenovo**, **Acer**, **Intel Core i3/i5**, **AMD Ryzen**, **RAM 8GB**, **SSD 512GB**, atau ketik **Bebas** jika menyerahkan rekomendasi terbaik pada kami)_";
+                if (str_contains(strtolower($purpose), 'edit') || str_contains(strtolower($purpose), 'desain') || str_contains(strtolower($purpose), 'render')) {
+                    $jawaban_bot = "Kebutuhan utama: **{$purpose}**.\n\n💡 **Panduan Rekomendasi Editing/Desain:**\nUntuk pengerjaan edit video/desain yang lancar, disarankan laptop dengan processor **AMD Ryzen 3** atau **Intel Core i3** ke atas (processor di bawah Core i3 seperti Celeron/Pentium kurang disarankan untuk desain berat).\n\nApakah Anda memiliki **preferensi spesifikasi atau merk tertentu** yang dicari?\n_(Contoh: **ASUS**, **Lenovo**, **Acer**, **AMD Ryzen 3/5**, **Intel Core i3/i5**, **RAM 8GB**, **SSD 512GB**, atau ketik **Bebas** jika menyerahkan rekomendasi terbaik pada kami)_";
+                } else {
+                    $jawaban_bot = "Kebutuhan utama: **{$purpose}**.\n\nApakah Anda memiliki **preferensi spesifikasi atau merk tertentu** yang dicari?\n_(Contoh: **ASUS**, **Lenovo**, **Acer**, **Intel Core i3/i5**, **AMD Ryzen**, **RAM 8GB**, **SSD 512GB**, atau ketik **Bebas** jika menyerahkan rekomendasi terbaik pada kami)_";
+                }
                 return response()->json([
                     'jawaban' => $jawaban_bot,
                     'rekomendasi_produk' => collect(),
@@ -113,6 +173,184 @@ class ChatbotController extends Controller
                 } catch (\Exception $e) {
                     // Abaikan
                 }
+
+                return response()->json([
+                    'jawaban' => $consult_result['jawaban'],
+                    'rekomendasi_produk' => $consult_result['rekomendasi_produk'],
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+        }
+
+        // --- 0.0.01 CEK SESSION FLOW UNTUK KONSULTASI PRINTER ---
+        if ($flow && str_starts_with($flow, 'printer_consult_')) {
+            if ($pesan_user === 'batal' || $pesan_user === 'cancel' || $pesan_user === 'keluar') {
+                session()->forget([
+                    'chatbot_flow',
+                    'printer_consult_usage',
+                    'printer_consult_brand',
+                ]);
+                $jawaban_bot = "Proses konsultasi pencarian printer telah dibatalkan. Ada hal lain yang bisa saya bantu?";
+                return response()->json([
+                    'jawaban' => $jawaban_bot,
+                    'rekomendasi_produk' => collect(),
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+
+            if ($flow === 'printer_consult_waiting_preference') {
+                // Parse usage
+                $usage = null;
+                if (str_contains($pesan_user, 'scan') || str_contains($pesan_user, 'copy') || str_contains($pesan_user, 'fotocopy') || str_contains($pesan_user, 'fotokopi') || str_contains($pesan_user, 'all in one') || str_contains($pesan_user, 'aio') || str_contains($pesan_user, 'multifungsi') || $pesan_user === '1') {
+                    $usage = 'Scan & Copy';
+                } elseif (str_contains($pesan_user, 'print saja') || str_contains($pesan_user, 'hanya print') || str_contains($pesan_user, 'khusus print') || str_contains($pesan_user, 'cetak saja') || str_contains($pesan_user, 'single') || $pesan_user === '2') {
+                    $usage = 'Khusus Print Saja';
+                } elseif (str_contains($pesan_user, 'bebas') || str_contains($pesan_user, 'semua') || str_contains($pesan_user, 'apa saja') || $pesan_user === '3') {
+                    $usage = 'Bebas';
+                } elseif (str_contains($pesan_user, 'print') && !str_contains($pesan_user, 'scan') && !str_contains($pesan_user, 'copy')) {
+                    $usage = 'Khusus Print Saja';
+                }
+
+                // Parse brand
+                $brand = null;
+                if (str_contains($pesan_user, 'epson')) {
+                    $brand = 'Epson';
+                } elseif (str_contains($pesan_user, 'canon')) {
+                    $brand = 'Canon';
+                } elseif (str_contains($pesan_user, 'brother')) {
+                    $brand = 'Brother';
+                } elseif (str_contains($pesan_user, 'hp')) {
+                    $brand = 'HP';
+                } elseif (str_contains($pesan_user, 'bebas') || str_contains($pesan_user, 'semua') || str_contains($pesan_user, 'terserah') || str_contains($pesan_user, 'tidak ada') || str_contains($pesan_user, 'apa saja')) {
+                    $brand = 'Bebas';
+                }
+
+                if ($usage && $brand) {
+                    $consult_result = $this->generatePrinterConsultationResult($usage, $brand);
+                    session()->forget([
+                        'chatbot_flow',
+                        'printer_consult_usage',
+                        'printer_consult_brand',
+                    ]);
+
+                    try {
+                        ChatbotLog::create([
+                            'user_id' => Auth::id(),
+                            'pesan' => "Konsultasi Printer: Fungsi {$usage}, Merk {$brand}",
+                            'jawaban' => $consult_result['jawaban'],
+                            'kategori' => 'konsultasi_printer',
+                        ]);
+                    } catch (\Exception $e) {}
+
+                    return response()->json([
+                        'jawaban' => $consult_result['jawaban'],
+                        'rekomendasi_produk' => $consult_result['rekomendasi_produk'],
+                        'rekomendasi_jasa' => collect(),
+                    ]);
+                } elseif ($usage && !$brand) {
+                    session([
+                        'chatbot_flow' => 'printer_consult_waiting_brand',
+                        'printer_consult_usage' => $usage,
+                    ]);
+
+                    $jawaban_bot = "Pilihan penggunaan: **{$usage}**. 👍\n\nSelanjutnya, apakah Anda memiliki preferensi **merk printer** yang dicari?\n1. **Epson** (EcoTank, sangat hemat tinta & awet)\n2. **Canon** (Warna tajam, cetak cepat & ekonomis)\n3. **Brother** (Kapasitas tinggi, multifungsi & tangguh)\n4. **Bebas / Semua Merk** (Tampilkan rekomendasi terbaik dari semua merk)\n\n_Silakan ketik merk pilihan Anda (Epson / Canon / Brother / Bebas)._";
+                    return response()->json([
+                        'jawaban' => $jawaban_bot,
+                        'rekomendasi_produk' => collect(),
+                        'rekomendasi_jasa' => collect(),
+                    ]);
+                } elseif (!$usage && $brand) {
+                    session([
+                        'chatbot_flow' => 'printer_consult_waiting_usage',
+                        'printer_consult_brand' => $brand,
+                    ]);
+
+                    $jawaban_bot = "Merk pilihan: **{$brand}**. 👍\n\nUntuk printer **{$brand}** ini, apakah Anda membutuhkan fungsi:\n1. **Scan & Copy (All-in-One)** (Bisa Print dokumen/foto, Scan, dan Fotocopy)\n2. **Khusus Print Saja (Single Function)** (Hanya mencetak dokumen biasa)\n3. **Bebas / Semua Tipe**\n\n_Silakan ketik pilihan Anda (Scan Copy / Khusus Print / Bebas)._";
+                    return response()->json([
+                        'jawaban' => $jawaban_bot,
+                        'rekomendasi_produk' => collect(),
+                        'rekomendasi_jasa' => collect(),
+                    ]);
+                } else {
+                    $jawaban_bot = "Mohon maaf, pilihan belum jelas. Silakan sebutkan kebutuhan penggunaan (**Scan Copy** atau **Khusus Print Saja**) dan merk printer yang Anda cari (**Epson**, **Canon**, **Brother**, atau **Bebas**).\n\n_Ketik **batal** jika ingin keluar._";
+                    return response()->json([
+                        'jawaban' => $jawaban_bot,
+                        'rekomendasi_produk' => collect(),
+                        'rekomendasi_jasa' => collect(),
+                    ]);
+                }
+            }
+
+            if ($flow === 'printer_consult_waiting_usage') {
+                $usage = 'Scan & Copy';
+                if (str_contains($pesan_user, 'scan') || str_contains($pesan_user, 'copy') || str_contains($pesan_user, 'fotocopy') || str_contains($pesan_user, 'fotokopi') || str_contains($pesan_user, 'all in one') || str_contains($pesan_user, 'aio') || str_contains($pesan_user, 'multifungsi') || $pesan_user === '1') {
+                    $usage = 'Scan & Copy';
+                } elseif (str_contains($pesan_user, 'print saja') || str_contains($pesan_user, 'hanya print') || str_contains($pesan_user, 'khusus print') || str_contains($pesan_user, 'cetak saja') || str_contains($pesan_user, 'single') || str_contains($pesan_user, 'print') || $pesan_user === '2') {
+                    $usage = 'Khusus Print Saja';
+                } elseif (str_contains($pesan_user, 'bebas') || str_contains($pesan_user, 'semua') || str_contains($pesan_user, 'apa saja') || $pesan_user === '3') {
+                    $usage = 'Bebas';
+                } else {
+                    $usage = $request->pesan;
+                }
+
+                $brand = session('printer_consult_brand', 'Bebas');
+                $consult_result = $this->generatePrinterConsultationResult($usage, $brand);
+
+                session()->forget([
+                    'chatbot_flow',
+                    'printer_consult_usage',
+                    'printer_consult_brand',
+                ]);
+
+                try {
+                    ChatbotLog::create([
+                        'user_id' => Auth::id(),
+                        'pesan' => "Konsultasi Printer: Fungsi {$usage}, Merk {$brand}",
+                        'jawaban' => $consult_result['jawaban'],
+                        'kategori' => 'konsultasi_printer',
+                    ]);
+                } catch (\Exception $e) {}
+
+                return response()->json([
+                    'jawaban' => $consult_result['jawaban'],
+                    'rekomendasi_produk' => $consult_result['rekomendasi_produk'],
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            }
+
+            if ($flow === 'printer_consult_waiting_brand') {
+                $brand = 'Bebas';
+                if (str_contains($pesan_user, 'epson') || $pesan_user === '1') {
+                    $brand = 'Epson';
+                } elseif (str_contains($pesan_user, 'canon') || $pesan_user === '2') {
+                    $brand = 'Canon';
+                } elseif (str_contains($pesan_user, 'brother') || $pesan_user === '3') {
+                    $brand = 'Brother';
+                } elseif (str_contains($pesan_user, 'hp')) {
+                    $brand = 'HP';
+                } elseif (str_contains($pesan_user, 'bebas') || str_contains($pesan_user, 'semua') || str_contains($pesan_user, 'terserah') || str_contains($pesan_user, 'apa saja') || $pesan_user === '4') {
+                    $brand = 'Bebas';
+                } else {
+                    $brand = $request->pesan;
+                }
+
+                $usage = session('printer_consult_usage', 'Scan & Copy');
+                $consult_result = $this->generatePrinterConsultationResult($usage, $brand);
+
+                session()->forget([
+                    'chatbot_flow',
+                    'printer_consult_usage',
+                    'printer_consult_brand',
+                ]);
+
+                try {
+                    ChatbotLog::create([
+                        'user_id' => Auth::id(),
+                        'pesan' => "Konsultasi Printer: Fungsi {$usage}, Merk {$brand}",
+                        'jawaban' => $consult_result['jawaban'],
+                        'kategori' => 'konsultasi_printer',
+                    ]);
+                } catch (\Exception $e) {}
 
                 return response()->json([
                     'jawaban' => $consult_result['jawaban'],
@@ -421,6 +659,118 @@ class ChatbotController extends Controller
             ]);
         }
         
+        // --- 0.0.9 CEK APAKAH INPUT BARU MEMICU ALUR KONSULTASI PRINTER ---
+        $printer_keywords = [
+            'cari printer', 'rekomendasi printer', 'harga printer', 'tanya printer', 
+            'konsultasi printer', 'pilihan printer', 'printer murah', 'printer apa', 
+            'list printer', 'daftar printer', 'katalog printer', 'tipe printer',
+            'printer scan', 'printer copy', 'printer fotocopy', 'printer print saja',
+            'printer all in one', 'beli printer', 'mau printer', 'butuh printer',
+            'jual printer', 'ada printer', 'printer baru', 'printer epson', 'printer canon',
+            'printer brother', 'printer hp', 'info printer'
+        ];
+
+        $is_querying_printer = false;
+        foreach ($printer_keywords as $pk) {
+            if (str_contains($pesan_user, $pk)) {
+                $is_querying_printer = true;
+                break;
+            }
+        }
+
+        if (!$is_querying_printer) {
+            if ($pesan_user === 'printer' || $pesan_user === 'printers' || $pesan_user === 'print') {
+                $is_querying_printer = true;
+            } elseif (str_contains($pesan_user, 'printer') && (str_contains($pesan_user, 'mau') || str_contains($pesan_user, 'cari') || str_contains($pesan_user, 'beli') || str_contains($pesan_user, 'tanya') || str_contains($pesan_user, 'rekomendasi') || str_contains($pesan_user, 'harga') || str_contains($pesan_user, 'butuh') || str_contains($pesan_user, 'ada') || str_contains($pesan_user, 'bagus') || str_contains($pesan_user, 'cocok') || str_contains($pesan_user, 'terbaik') || str_contains($pesan_user, 'skripsi') || str_contains($pesan_user, 'kuliah') || str_contains($pesan_user, 'kantor') || str_contains($pesan_user, 'usaha') || str_contains($pesan_user, 'all in one') || str_contains($pesan_user, 'scan') || str_contains($pesan_user, 'copy') || str_contains($pesan_user, 'fotocopy'))) {
+                $is_querying_printer = true;
+            }
+        }
+
+        // Cek jika pertanyaan spesifik menanyakan model produk tertentu (misal: "apakah ada printer L3210")
+        $is_specific_model_inquiry = false;
+        if (preg_match('/[a-z]{0,3}-?\d{3,4}[a-z]{0,2}/i', $pesan_user, $modelMatches)) {
+            $modelCode = $modelMatches[0];
+            if (strlen($modelCode) >= 3) {
+                $modelExists = Produk::where('nama_produk', 'LIKE', '%' . $modelCode . '%')
+                    ->orWhere('deskripsi', 'LIKE', '%' . $modelCode . '%')
+                    ->exists();
+                if ($modelExists) {
+                    $is_specific_model_inquiry = true;
+                }
+            }
+        }
+
+        if ($is_querying_printer && !$is_specific_model_inquiry) {
+            // Cek jika fungsi atau merk sudah disebutkan di pesan awal
+            $detected_usage = null;
+            if (str_contains($pesan_user, 'scan') || str_contains($pesan_user, 'copy') || str_contains($pesan_user, 'fotocopy') || str_contains($pesan_user, 'fotokopi') || str_contains($pesan_user, 'all in one') || str_contains($pesan_user, 'aio') || str_contains($pesan_user, 'multifungsi')) {
+                $detected_usage = 'Scan & Copy';
+            } elseif (str_contains($pesan_user, 'print saja') || str_contains($pesan_user, 'hanya print') || str_contains($pesan_user, 'khusus print') || str_contains($pesan_user, 'cetak saja') || str_contains($pesan_user, 'single function')) {
+                $detected_usage = 'Khusus Print Saja';
+            }
+
+            $detected_brand = null;
+            if (str_contains($pesan_user, 'epson')) {
+                $detected_brand = 'Epson';
+            } elseif (str_contains($pesan_user, 'canon')) {
+                $detected_brand = 'Canon';
+            } elseif (str_contains($pesan_user, 'brother')) {
+                $detected_brand = 'Brother';
+            } elseif (str_contains($pesan_user, 'hp')) {
+                $detected_brand = 'HP';
+            }
+
+            if ($detected_usage && $detected_brand) {
+                $result = $this->generatePrinterConsultationResult($detected_usage, $detected_brand);
+                try {
+                    ChatbotLog::create([
+                        'user_id' => Auth::id(),
+                        'pesan' => $request->pesan,
+                        'jawaban' => $result['jawaban'],
+                        'kategori' => 'konsultasi_printer',
+                    ]);
+                } catch (\Exception $e) {}
+
+                return response()->json([
+                    'jawaban' => $result['jawaban'],
+                    'rekomendasi_produk' => $result['rekomendasi_produk'],
+                    'rekomendasi_jasa' => collect(),
+                ]);
+            } elseif ($detected_usage && !$detected_brand) {
+                session([
+                    'chatbot_flow' => 'printer_consult_waiting_brand',
+                    'printer_consult_usage' => $detected_usage,
+                ]);
+                $jawaban_bot = "Pilihan penggunaan: **{$detected_usage} (Multifungsi)**. 👍\n\nSelanjutnya, apakah Anda memiliki preferensi **merk printer** yang dicari?\n1. **Epson** (EcoTank, sangat hemat tinta & awet)\n2. **Canon** (Warna tajam, cetak cepat & ekonomis)\n3. **Brother** (Kapasitas tinggi, multifungsi & tangguh)\n4. **Bebas / Semua Merk** (Tampilkan rekomendasi terbaik dari semua merk)\n\n_Silakan ketik merk pilihan Anda (Epson / Canon / Brother / Bebas)._";
+            } elseif (!$detected_usage && $detected_brand) {
+                session([
+                    'chatbot_flow' => 'printer_consult_waiting_usage',
+                    'printer_consult_brand' => $detected_brand,
+                ]);
+                $jawaban_bot = "Merk pilihan: **{$detected_brand}**. 👍\n\nUntuk printer **{$detected_brand}** ini, apakah Anda membutuhkan fungsi:\n1. **Scan & Copy (All-in-One)** (Bisa Print dokumen/foto, Scan, dan Fotocopy)\n2. **Khusus Print Saja (Single Function)** (Hanya untuk mencetak dokumen/kertas)\n3. **Bebas / Semua Tipe**\n\n_Silakan ketik pilihan Anda (Scan Copy / Khusus Print / Bebas)._";
+            } else {
+                session([
+                    'chatbot_flow' => 'printer_consult_waiting_preference',
+                ]);
+                $jawaban_bot = "Halo! Saya siap membantu Anda memilih **printer** yang paling tepat dan sesuai dengan kebutuhan Anda. 😊\n\nUntuk memberikan rekomendasi terbaik, mohon informasikan:\n1. **Penggunaan / Kebutuhan:** Apakah Anda membutuhkan printer multifungsi **(Scan & Copy / All-in-One)** atau **Khusus Print Saja**?\n2. **Merk yang Dicari:** Apakah ada preferensi merk tertentu (contoh: **Epson**, **Canon**, **Brother**, atau **Bebas / Semua Merk**)?\n\n_Silakan ketik kebutuhan dan merk Anda (contoh: **\"Scan Copy, Epson\"**, **\"Khusus Print Saja, Canon\"**, atau ketik pilihan Anda. Ketik **batal** untuk keluar)._";
+            }
+
+            try {
+                ChatbotLog::create([
+                    'user_id' => Auth::id(),
+                    'pesan' => $request->pesan,
+                    'jawaban' => $jawaban_bot,
+                    'kategori' => 'konsultasi_printer',
+                ]);
+            } catch (\Exception $e) {}
+
+            return response()->json([
+                'jawaban' => $jawaban_bot,
+                'rekomendasi_produk' => collect(),
+                'rekomendasi_jasa' => collect(),
+            ]);
+        }
+        
         // --- 0.1 CEK APAKAH INPUT BARU MEMICU ALUR KONSULTASI LAPTOP / BARANG ---
         $keywords_product_consult = [
             'harga laptop', 'cari laptop', 'rekomendasi laptop', 'laptop murah', 'pilihan laptop', 
@@ -536,6 +886,50 @@ class ChatbotController extends Controller
                 // Abaikan
             }
             
+            return response()->json([
+                'jawaban' => $jawaban_bot,
+                'rekomendasi_produk' => collect(),
+                'rekomendasi_jasa' => collect(),
+            ]);
+        }
+
+        // --- 0.3 CEK JIKA MENANYAKAN TOKO OFFLINE / LOKASI / WHATSAPP ---
+        $keywords_store_location = ['lokasi', 'alamat', 'peta', 'map', 'maps', 'offline', 'toko offline', 'google maps', 'gmaps', 'cabang', 'posisi toko', 'letak toko'];
+        $keywords_store_contact = ['whatsapp', 'wa', 'kontak', 'nomor wa', 'no wa', 'nomor whatsapp', 'contact', 'no hp', 'telepon', 'nomor hp'];
+
+        $is_asking_store_location = false;
+        foreach ($keywords_store_location as $ksl) {
+            if (str_contains($pesan_user, $ksl)) {
+                $is_asking_store_location = true;
+                break;
+            }
+        }
+
+        $is_asking_store_contact = false;
+        foreach ($keywords_store_contact as $ksc) {
+            if (str_contains($pesan_user, $ksc)) {
+                $is_asking_store_contact = true;
+                break;
+            }
+        }
+
+        if ($is_asking_store_location || $is_asking_store_contact) {
+            $jawaban_bot = "Anda dapat mengunjungi toko offline kami **Nusantara Jaya Computer** atau menghubungi kami melalui informasi berikut:\n\n";
+            $jawaban_bot .= "📍 **Google Maps Toko Offline:**\nhttps://share.google/xrwq12yHe0uMzcoFv\n\n";
+            $jawaban_bot .= "📱 **Nomor WhatsApp Toko:**\n- **0851-8239-2525**\n- **0851-8239-2526**\n\n";
+            $jawaban_bot .= "Silakan mampir langsung ke toko kami atau hubungi kami via WhatsApp jika ada pertanyaan lebih lanjut!";
+
+            try {
+                ChatbotLog::create([
+                    'user_id' => Auth::id(),
+                    'pesan' => $request->pesan,
+                    'jawaban' => $jawaban_bot,
+                    'kategori' => 'lokasi_toko',
+                ]);
+            } catch (\Exception $e) {
+                // Abaikan
+            }
+
             return response()->json([
                 'jawaban' => $jawaban_bot,
                 'rekomendasi_produk' => collect(),
@@ -1604,8 +1998,11 @@ class ChatbotController extends Controller
                     $score += 30;
                 }
             } elseif (str_contains($purposeLower, 'edit') || str_contains($purposeLower, 'desain') || str_contains($purposeLower, 'render') || str_contains($purposeLower, 'coding')) {
-                if (str_contains($fullText, '512gb') || str_contains($fullText, '16gb') || str_contains($fullText, 'ips') || str_contains($fullText, 'fhd') || str_contains($fullText, 'i5') || str_contains($fullText, 'ryzen 5')) {
+                if (str_contains($fullText, 'ryzen 3') || str_contains($fullText, 'ryzen 5') || str_contains($fullText, 'ryzen 7') || str_contains($fullText, 'i3') || str_contains($fullText, 'i5') || str_contains($fullText, 'i7') || str_contains($fullText, '512gb') || str_contains($fullText, '16gb') || str_contains($fullText, 'ips') || str_contains($fullText, 'fhd')) {
                     $score += 30;
+                }
+                if (str_contains($fullText, 'celeron') || str_contains($fullText, 'pentium') || str_contains($fullText, 'n4020') || str_contains($fullText, 'n4500') || str_contains($fullText, 'athlon')) {
+                    $score -= 40;
                 }
             } elseif (str_contains($purposeLower, 'office') || str_contains($purposeLower, 'sekolah') || str_contains($purposeLower, 'harian') || str_contains($purposeLower, 'admin')) {
                 if (str_contains($fullText, 'i3') || str_contains($fullText, 'ryzen 3') || str_contains($fullText, 'n4020') || str_contains($fullText, 'ohs') || str_contains($fullText, 'office') || str_contains($fullText, '8gb')) {
@@ -1636,8 +2033,11 @@ class ChatbotController extends Controller
         $jawaban .= "Berikut adalah pilihan produk yang paling sesuai dengan kriteria yang Anda cari:\n";
         $jawaban .= "* 💰 **Target Budget:** Rp {$budgetFormatted}\n";
         $jawaban .= "* 🎯 **Kebutuhan Utama:** {$purpose}\n";
-        $jawaban .= "* ⚙️ **Preferensi Spesifikasi/Merk:** {$specs}\n\n";
-        $jawaban .= "---------------------------------------------\n";
+        $jawaban .= "* ⚙️ **Preferensi Spesifikasi/Merk:** {$specs}\n";
+        if (str_contains($purposeLower, 'edit') || str_contains($purposeLower, 'desain') || str_contains($purposeLower, 'render')) {
+            $jawaban .= "* 💡 **Saran Spesifikasi:** Disarankan processor **AMD Ryzen 3** atau **Intel Core i3** ke atas (processor di bawah Core i3 kurang disarankan untuk desain berat).\n";
+        }
+        $jawaban .= "\n---------------------------------------------\n";
 
         if ($topProducts->isNotEmpty()) {
             $jawaban .= "📋 **Daftar Pilihan Produk Terbaik:**\n\n";
@@ -1660,6 +2060,157 @@ class ChatbotController extends Controller
         return [
             'jawaban' => $jawaban,
             'rekomendasi_produk' => $topProducts,
+        ];
+    }
+
+    /**
+     * Menghasilkan rekomendasi printer berdasarkan kebutuhan penggunaan (Scan & Copy vs Khusus Print) dan merk.
+     */
+    private function generatePrinterConsultationResult($usage, $brand)
+    {
+        $allPrinters = Produk::with('kategori')
+            ->where(function($q) {
+                $q->whereHas('kategori', function($k) {
+                    $k->where('nama_kategori', 'LIKE', '%PRINTER%');
+                })->orWhere('nama_produk', 'LIKE', '%PRINTER%');
+            })->get();
+
+        $usageLower = strtolower($usage);
+        $brandLower = strtolower($brand);
+
+        $isScanCopy = str_contains($usageLower, 'scan') || str_contains($usageLower, 'copy') || str_contains($usageLower, 'fotocopy') || str_contains($usageLower, 'all') || str_contains($usageLower, 'multifungsi');
+        $isPrintOnly = str_contains($usageLower, 'print saja') || str_contains($usageLower, 'hanya print') || str_contains($usageLower, 'khusus print') || str_contains($usageLower, 'single') || (str_contains($usageLower, 'print') && !$isScanCopy);
+        $isAnyUsage = str_contains($usageLower, 'bebas') || str_contains($usageLower, 'semua') || (!$isScanCopy && !$isPrintOnly);
+
+        $isAnyBrand = str_contains($brandLower, 'bebas') || str_contains($brandLower, 'semua') || str_contains($brandLower, 'terserah');
+
+        // Beri scoring pada printer
+        $scored = $allPrinters->map(function($printer) use ($isScanCopy, $isPrintOnly, $isAnyUsage, $brandLower, $isAnyBrand) {
+            $score = 0;
+            $namaLower = strtolower($printer->nama_produk);
+            $deskripsiLower = strtolower($printer->deskripsi ?? '');
+            $merkLower = strtolower($printer->merk ?? '');
+            $fullText = $namaLower . ' ' . $deskripsiLower . ' ' . $merkLower;
+
+            // Cocokkan Brand
+            if (!$isAnyBrand) {
+                if ($merkLower === $brandLower || str_contains($fullText, $brandLower)) {
+                    $score += 60;
+                } else {
+                    $score -= 100; // Bukan merk yang dicari
+                }
+            } else {
+                $score += 20;
+            }
+
+            // Cocokkan Fungsi / Penggunaan
+            $isProductAllInOne = str_contains($fullText, 'scan') || str_contains($fullText, 'copy') || str_contains($fullText, 'fotocopy') || str_contains($fullText, 'all-in-one') || str_contains($fullText, 'multifungsi');
+            $isProductPrintOnly = (str_contains($fullText, '(print)') || str_contains($fullText, 'single function') || str_contains($fullText, 'dot matrix')) && !$isProductAllInOne;
+
+            if ($isScanCopy) {
+                if ($isProductAllInOne) {
+                    $score += 40;
+                } elseif ($isProductPrintOnly) {
+                    $score -= 40;
+                }
+            } elseif ($isPrintOnly) {
+                if ($isProductPrintOnly) {
+                    $score += 40;
+                } elseif ($isProductAllInOne) {
+                    $score -= 40;
+                }
+            } else {
+                $score += 20;
+            }
+
+            // Prioritaskan yang ready stock
+            if ($printer->stok > 0) {
+                $score += 10;
+            }
+
+            return [
+                'product' => $printer,
+                'score' => $score,
+            ];
+        })->filter(function($item) {
+            return $item['score'] > 0;
+        })->sortByDesc('score');
+
+        $matchedPrinters = $scored->pluck('product')->values();
+
+        // Jika tidak ada yang cocok sama sekali, fallback ke semua printer
+        if ($matchedPrinters->isEmpty()) {
+            $matchedPrinters = $allPrinters->take(4);
+        } else {
+            $matchedPrinters = $matchedPrinters->take(5);
+        }
+
+        $brandText = $isAnyBrand ? 'Semua Merk' : ucfirst($brand);
+        $usageText = $isScanCopy ? 'Scan & Copy (All-in-One)' : ($isPrintOnly ? 'Khusus Print Saja (Single Function)' : 'Semua Fungsi');
+
+        $jawaban = "### 🖨️ REKOMENDASI PRINTER PILIHAN\n\n";
+        $jawaban .= "Berikut adalah rekomendasi printer yang disesuaikan dengan kebutuhan Anda:\n";
+        $jawaban .= "* 🎯 **Kebutuhan Fungsi:** {$usageText}\n";
+        $jawaban .= "* 🏷️ **Preferensi Merk:** {$brandText}\n\n";
+        $jawaban .= "---------------------------------------------\n";
+        $jawaban .= "📋 **Daftar Printer Terbaik yang Tersedia:**\n\n";
+
+        // Tinta mapping helper
+        $tintaInfoMap = [
+            'l3211' => 'Tinta Epson 003 (Black, Cyan, Magenta, Yellow)',
+            'l3251' => 'Tinta Epson 003 (Black, Cyan, Magenta, Yellow)',
+            'l5290' => 'Tinta Epson 003 (Black, Cyan, Magenta, Yellow)',
+            'l121'  => 'Tinta Epson 664 (Black, Cyan, Magenta, Yellow)',
+            'lq-310' => 'Pita Ribbon Epson S015639 (LQ-310)',
+            'lq310' => 'Pita Ribbon Epson S015639 (LQ-310)',
+            'g1010' => 'Tinta Canon GI-790 (Black, Cyan, Magenta, Yellow)',
+            'g2010' => 'Tinta Canon GI-790 (Black, Cyan, Magenta, Yellow)',
+            'g3010' => 'Tinta Canon GI-790 (Black, Cyan, Magenta, Yellow)',
+            'g3730' => 'Tinta Canon GI-71 (Black, Cyan, Magenta, Yellow)',
+            'g4010' => 'Tinta Canon GI-790 (Black, Cyan, Magenta, Yellow)',
+            'e470'  => 'Cartridge Canon PG-47 (Hitam) & CL-57 (Warna)',
+            't230'  => 'Tinta Brother BTD60BK & BT5000 (Color)',
+            't430w' => 'Tinta Brother BTD60BK & BT5000 (Color)',
+            't730w' => 'Tinta Brother BTD60BK & BT5000 (Color) / BTD100',
+        ];
+
+        foreach ($matchedPrinters as $p) {
+            $hargaFormatted = number_format($p->harga_jual, 0, ',', '.');
+            $stokStatus = $p->stok > 0 ? "Ready Stock ({$p->stok} unit)" : "Stok Habis";
+            
+            $jawaban .= "🔹 **{$p->nama_produk}**\n";
+            $jawaban .= "   • Harga: **Rp {$hargaFormatted}** &bull; Status: **{$stokStatus}**\n";
+            if ($p->deskripsi) {
+                $jawaban .= "   • Fitur: {$p->deskripsi}\n";
+            }
+
+            // Cari info tinta
+            $pNameLower = strtolower($p->nama_produk);
+            $tintaFound = null;
+            foreach ($tintaInfoMap as $modelKey => $tintaName) {
+                if (str_contains($pNameLower, $modelKey)) {
+                    $tintaFound = $tintaName;
+                    break;
+                }
+            }
+            if ($tintaFound) {
+                $jawaban .= "   • 💧 **Tipe Tinta:** {$tintaFound}\n";
+            }
+            $jawaban .= "\n";
+        }
+
+        $jawaban .= "💡 **Panduan & Tips Perawatan:**\n";
+        if ($isScanCopy) {
+            $jawaban .= "- Printer All-in-One sangat efisien untuk kebutuhan tugas sekolah, skripsi, maupun kantor karena sudah mencakup Scan dokumen dan Fotocopy tanpa perlu alat tambahan.\n";
+        } elseif ($isPrintOnly) {
+            $jawaban .= "- Printer Khusus Print (Single Function) memiliki harga lebih terjangkau dan sangat cocok bagi Anda yang hanya membutuhkan cetak dokumen dalam volume tinggi.\n";
+        }
+        $jawaban .= "- Disarankan menggunakan tinta original agar printhead tetap awet dan garansi resmi tetap berlaku.\n\n";
+        $jawaban .= "Silakan klik produk di bawah ini untuk melihat detail spesifikasi lengkap atau melakukan pemesanan di Katalog kami.";
+
+        return [
+            'jawaban' => $jawaban,
+            'rekomendasi_produk' => $matchedPrinters,
         ];
     }
 }

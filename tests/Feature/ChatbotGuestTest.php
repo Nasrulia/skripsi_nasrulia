@@ -137,4 +137,26 @@ class ChatbotGuestTest extends TestCase
         $this->assertStringContainsString('Notifikasi Restock Aktif', $jawabanLoggedIn);
         $this->assertStringContainsString('081234567890', $jawabanLoggedIn);
     }
+
+    /**
+     * Test that asking about offline store returns maps link and whatsapp numbers.
+     */
+    public function test_chatbot_returns_offline_store_location_and_whatsapp_numbers(): void
+    {
+        if (AturanChatbot::count() === 0) {
+            $this->seed(\Database\Seeders\AturanChatbotSeeder::class);
+        }
+
+        $response = $this->postJson('/api/chat', [
+            'pesan' => 'dimana lokasi toko offlinenya'
+        ]);
+
+        $response->assertStatus(200);
+        $jawaban = $response->json('jawaban');
+        $this->assertStringContainsString('https://share.google/xrwq12yHe0uMzcoFv', $jawaban);
+        $this->assertStringContainsString('0851-8239-2525', $jawaban);
+        $this->assertStringContainsString('0851-8239-2526', $jawaban);
+    }
 }
+
+

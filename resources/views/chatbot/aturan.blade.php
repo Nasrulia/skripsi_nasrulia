@@ -32,16 +32,27 @@
                     <thead class="table-light">
                         <tr>
                             <th width="5%" class="text-center rounded-start">No</th>
-                            <th width="25%">Kata Kunci (Keyword)</th>
+                            <th width="22%" style="max-width: 260px;">Kata Kunci (Keyword)</th>
                             <th>Jawaban (Response)</th>
-                            <th width="15%" class="text-center rounded-end">Aksi</th>
+                            <th width="12%" class="text-center rounded-end">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($aturan as $index => $a)
                         <tr>
                             <td class="text-center text-muted">{{ $index + 1 }}</td>
-                            <td><span class="badge bg-dark bg-opacity-10 text-dark px-3 py-2 rounded-pill"><i class="bi bi-key me-1"></i> {{ $a->kata_kunci }}</span></td>
+                            <td style="max-width: 260px;">
+                                <div class="d-flex flex-wrap gap-1 align-items-center">
+                                    @foreach(explode(',', $a->kata_kunci) as $keyword)
+                                        @php $kw = trim($keyword); @endphp
+                                        @if($kw !== '')
+                                            <span class="badge bg-dark bg-opacity-10 text-dark px-2 py-1 rounded-pill fw-normal text-wrap" style="font-size: 0.8rem;">
+                                                <i class="bi bi-key me-1 opacity-50"></i>{{ $kw }}
+                                            </span>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </td>
                             <td class="text-muted">{{ Str::limit($a->jawaban, 80) }}</td>
                             <td class="text-center">
                                 <button class="btn btn-sm btn-outline-primary rounded-3 me-1" data-bs-toggle="modal" data-bs-target="#modalEdit{{ $a->id }}">

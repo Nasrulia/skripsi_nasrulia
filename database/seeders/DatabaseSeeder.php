@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
         ProdukAxiooSeeder::class,
         ProdukAdvanSeeder::class,
         ProdukPrinterSeeder::class,
+        ProdukTintaSeeder::class,
+        ProdukMouseKeyboardSeeder::class,
     ]);
 
     User::firstOrCreate(
