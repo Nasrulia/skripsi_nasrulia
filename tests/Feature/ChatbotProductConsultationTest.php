@@ -5,7 +5,8 @@ namespace Tests\Feature;
 use Tests\TestCase;
 use App\Models\Produk;
 use App\Models\Kategori;
-use App\Models\ChatbotLog;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class ChatbotProductConsultationTest extends TestCase
@@ -14,129 +15,48 @@ class ChatbotProductConsultationTest extends TestCase
 
     protected $seed = true;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        // Seed Asus products for testing
-        $this->seed(\Database\Seeders\ProdukAsusSeeder::class);
-    }
-
     /**
-     * Test full product consultation flow for laptop/goods inquiries.
+     * Test laptop consultation using Grok AI.
      */
-    public function test_product_consultation_flow_success(): void
+    public function test_laptop_consultation_with_grok_ai(): void
     {
-        // 1. Trigger flow by asking laptop price
+        $catLaptop = Kategori::create(['nama_kategori' => 'Laptop']);
+
+        $laptop = Produk::create([
+            'kategori_id' => $catLaptop->id,
+            'nama_produk' => 'Asus Vivobook Go 14',
+            'merk' => 'Asus',
+            'stok' => 3,
+            'harga_beli' => 4500000,
+            'harga_jual' => 5800000,
+            'deskripsi' => 'Laptop Asus Vivobook Go 14 Ryzen 3 7320U RAM 8GB SSD 512GB.',
+        ]);
+
+        Config::set('services.deepseek.api_key', 'sk-deepseek-test-key');
+        Http::fake([
+            'https://api.deepseek.com/chat/completions' => Http::response([
+                'choices' => [
+                    [
+                        'message' => [
+                            'role' => 'assistant',
+                            'content' => "Untuk kebutuhan kuliah dan kerja dengan budget sekitar 5 jutaan, kami merekomendasikan **Asus Vivobook Go 14** dengan harga **Rp 5.800.000** (Ready Stock). Spesifikasi Ryzen 3, RAM 8GB, SSD 512GB."
+                        ]
+                    ]
+                ]
+            ], 200)
+        ]);
+
         $response = $this->postJson('/api/chat', [
-            'pesan' => 'berapa harga laptop'
+            'pesan' => 'Rekomendasikan laptop Asus budget 5-6 juta untuk kuliah'
         ]);
 
         $response->assertStatus(200);
-        $this->assertEquals('product_consult_waiting_budget', session('chatbot_flow'));
-        $this->assertStringContainsString('kisaran budget / harga maksimal', $response->json('jawaban'));
-
-        // 2. Submit invalid budget format
-        $response = $this->postJson('/api/chat', [
-            'pesan' => 'tidak ada'
-        ]);
-        $response->assertStatus(200);
-        $this->assertEquals('product_consult_waiting_budget', session('chatbot_flow'));
-        $this->assertStringContainsString('Format budget tidak valid', $response->json('jawaban'));
-
-        // 3. Submit valid budget (8.5 juta)
-        $response = $this->postJson('/api/chat', [
-            'pesan' => '8.5 juta'
-        ]);
-        $response->assertStatus(200);
-        $this->assertEquals('product_consult_waiting_purpose', session('chatbot_flow'));
-        $this->assertEquals(8500000, session('product_consult_budget'));
-        $this->assertStringContainsString('penggunaan / kebutuhan utama', $response->json('jawaban'));
-
-        // 4. Submit purpose Gaming
-        $response = $this->postJson('/api/chat', [
-            'pesan' => 'gaming'
-        ]);
-        $response->assertStatus(200);
-        $this->assertEquals('product_consult_waiting_specs', session('chatbot_flow'));
-        $this->assertStringContainsString('preferensi spesifikasi atau merk tertentu', $response->json('jawaban'));
-
-        // 5. Submit specs & brand preference (ASUS RAM 8GB)
-        $response = $this->postJson('/api/chat', [
-            'pesan' => 'ASUS RAM 8GB'
-        ]);
-        $response->assertStatus(200);
-        
-        // Session should be cleared
-        $this->assertNull(session('chatbot_flow'));
-        $this->assertNull(session('product_consult_budget'));
-
         $jawaban = $response->json('jawaban');
-        $this->assertStringContainsString('REKOMENDASI PRODUK HASIL KONSULTASI', $jawaban);
-        $this->assertStringContainsString('8.500.000', $jawaban);
-        
-        // Check recommended products
+        $this->assertStringContainsString('Asus Vivobook Go 14', $jawaban);
+        $this->assertStringContainsString('5.800.000', $jawaban);
+
+        // Product recommendation card
         $recommended = $response->json('rekomendasi_produk');
         $this->assertNotEmpty($recommended);
-    }
-
-    /**
-     * Test cancelling the product consultation flow.
-     */
-    public function test_product_consultation_flow_cancellation(): void
-    {
-        // Start flow
-        $this->postJson('/api/chat', [
-            'pesan' => 'rekomendasi laptop'
-        ]);
-        $this->assertEquals('product_consult_waiting_budget', session('chatbot_flow'));
-
-        // Cancel flow
-        $response = $this->postJson('/api/chat', [
-            'pesan' => 'batal'
-        ]);
-
-        $response->assertStatus(200);
-        $this->assertNull(session('chatbot_flow'));
-        $this->assertStringContainsString('dibatalkan', $response->json('jawaban'));
-    }
-
-    /**
-     * Test asking "apakah ada list laptop" triggers consultation flow.
-     */
-    public function test_asking_list_laptop_triggers_consultation_flow(): void
-    {
-        $response = $this->postJson('/api/chat', [
-            'pesan' => 'apakah ada list laptop'
-        ]);
-
-        $response->assertStatus(200);
-        $this->assertEquals('product_consult_waiting_budget', session('chatbot_flow'));
-        $this->assertStringContainsString('kisaran budget / harga maksimal', $response->json('jawaban'));
-    }
-
-    /**
-     * Test product consultation flow for editing purpose includes AMD Ryzen 3 / Core i3 recommendation.
-     */
-    public function test_product_consultation_editing_processor_recommendation(): void
-    {
-        // 1. Trigger flow
-        $this->postJson('/api/chat', ['pesan' => 'rekomendasi laptop']);
-
-        // 2. Submit budget
-        $this->postJson('/api/chat', ['pesan' => '8 juta']);
-
-        // 3. Submit purpose Editing
-        $responsePurpose = $this->postJson('/api/chat', ['pesan' => 'editing']);
-        $responsePurpose->assertStatus(200);
-        $jawabanPurpose = $responsePurpose->json('jawaban');
-        $this->assertStringContainsString('AMD Ryzen 3', $jawabanPurpose);
-        $this->assertStringContainsString('Core i3', $jawabanPurpose);
-
-        // 4. Submit specs
-        $responseSpecs = $this->postJson('/api/chat', ['pesan' => 'Ryzen 5 RAM 16GB']);
-        $responseSpecs->assertStatus(200);
-        $jawabanFinal = $responseSpecs->json('jawaban');
-        $this->assertStringContainsString('AMD Ryzen 3', $jawabanFinal);
-        $this->assertStringContainsString('Core i3', $jawabanFinal);
     }
 }

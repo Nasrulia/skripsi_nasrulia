@@ -29,7 +29,7 @@ class AuthenticatedSessionController extends Controller
 
     $user = Auth::user();
 
-    if ($user->peran == 'admin' || $user->peran == 'kasir' || $user->peran == 'teknisi') {
+    if (in_array($user->peran, ['admin', 'kasir', 'teknisi', 'pimpinan'])) {
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

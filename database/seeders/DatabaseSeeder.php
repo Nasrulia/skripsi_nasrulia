@@ -43,6 +43,11 @@ class DatabaseSeeder extends Seeder
         ['name' => 'Teknisi NJK', 'password' => bcrypt('password'), 'peran' => 'teknisi']
     );
 
+    User::firstOrCreate(
+        ['email' => 'pimpinan@gmail.com'],
+        ['name' => 'Pimpinan NJK', 'password' => bcrypt('password'), 'peran' => 'pimpinan']
+    );
+
     Ekspedisi::firstOrCreate(
         ['nama_ekspedisi' => 'JNE'],
         ['ongkir_per_km' => 2000]

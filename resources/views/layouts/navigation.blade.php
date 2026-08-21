@@ -32,11 +32,13 @@
                     <i class="bi bi-person-badge"></i> Data Teknisi
                 </a>
             </li>
+        @endif
 
+        @if(in_array(Auth::user()->peran, ['admin', 'pimpinan', 'kasir']))
             <li class="px-4 mt-4 mb-2 text-uppercase fw-bold" style="font-size: 0.7rem; color: #565674; letter-spacing: 1px;">Laporan Toko</li>
             <li>
                 <a href="{{ route('laporan.index') }}" class="{{ request()->is('laporan*') ? 'active' : '' }}">
-                    <i class="bi bi-printer-fill"></i> Cetak Laporan
+                    <i class="bi bi-printer-fill"></i> Cetak & Preview Laporan
                 </a>
             </li>
         @endif
@@ -64,7 +66,7 @@
             </li>
         @endif
 
-        @if(Auth::user()->peran != 'teknisi')
+        @if(in_array(Auth::user()->peran, ['admin', 'kasir', 'pelanggan']))
             <li class="px-4 mt-4 mb-2 text-uppercase fw-bold" style="font-size: 0.7rem; color: #565674; letter-spacing: 1px;">Belanja</li>
             <li>
                 <a href="{{ route('pelanggan.katalog') }}" class="{{ request()->is('katalog*') ? 'active' : '' }}">

@@ -33,14 +33,16 @@ class ProdukController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nama_produk' => 'required|string|max:255',
-            'kategori_id' => 'required|exists:kategori,id',
-            'merk'        => 'nullable|string|max:255',
-            'stok'        => 'required|integer|min:0',
-            'harga_beli'  => 'required|numeric|min:0',
-            'harga_jual'  => 'required|numeric|min:0',
-            'foto'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'deskripsi'   => 'nullable|string'
+            'nama_produk'    => 'required|string|max:255',
+            'kategori_id'    => 'required|exists:kategori,id',
+            'merk'           => 'nullable|string|max:255',
+            'stok'           => 'required|integer|min:0',
+            'harga_beli'     => 'required|numeric|min:0',
+            'harga_jual'     => 'required|numeric|min:0',
+            'berat_gram'     => 'required|integer|min:1',
+            'ukuran_packing' => 'required|in:kecil,sedang,besar,ekstra_besar',
+            'foto'           => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'deskripsi'      => 'nullable|string'
         ]);
 
         $data = $request->all();
@@ -57,14 +59,16 @@ class ProdukController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'nama_produk' => 'required|string|max:255',
-            'kategori_id' => 'required|exists:kategori,id',
-            'merk'        => 'nullable|string|max:255',
-            'stok'        => 'required|integer|min:0',
-            'harga_beli'  => 'required|numeric|min:0',
-            'harga_jual'  => 'required|numeric|min:0',
-            'foto'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'deskripsi'   => 'nullable|string'
+            'nama_produk'    => 'required|string|max:255',
+            'kategori_id'    => 'required|exists:kategori,id',
+            'merk'           => 'nullable|string|max:255',
+            'stok'           => 'required|integer|min:0',
+            'harga_beli'     => 'required|numeric|min:0',
+            'harga_jual'     => 'required|numeric|min:0',
+            'berat_gram'     => 'required|integer|min:1',
+            'ukuran_packing' => 'required|in:kecil,sedang,besar,ekstra_besar',
+            'foto'           => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'deskripsi'      => 'nullable|string'
         ]);
 
         $produk = Produk::findOrFail($id);

@@ -107,10 +107,31 @@
         @if($transaksi->metode_pengambilan == 'diantar')
         <tr>
             <td><strong>Ekspedisi</strong></td>
-            <td>: {{ $transaksi->ekspedisi->nama_ekspedisi ?? '-' }} ({{ $transaksi->jarak_km ?? '-' }} km)</td>
+            <td>: {{ $transaksi->ekspedisi->nama_ekspedisi ?? 'Ekspedisi' }} {{ $transaksi->layanan_ekspedisi ? '(' . $transaksi->layanan_ekspedisi . ')' : '' }}</td>
             <td><strong>Ongkir</strong></td>
             <td>: Rp {{ number_format($transaksi->ongkir, 0, ',', '.') }}</td>
         </tr>
+        @if($transaksi->biaya_packing > 0)
+        <tr>
+            <td><strong>Packing</strong></td>
+            <td>: Rp {{ number_format($transaksi->biaya_packing, 0, ',', '.') }} (Proteksi)</td>
+            <td><strong>Estimasi</strong></td>
+            <td>: {{ $transaksi->estimasi_pengiriman ?? '2-3 hari' }}</td>
+        </tr>
+        @endif
+        @if($transaksi->kota_tujuan)
+        <tr>
+            <td><strong>Kota Tujuan</strong></td>
+            <td>: {{ $transaksi->kota_tujuan }} {{ $transaksi->provinsi_tujuan ? ', ' . $transaksi->provinsi_tujuan : '' }}</td>
+            @if($transaksi->no_resi)
+            <td><strong>No. Resi</strong></td>
+            <td>: {{ $transaksi->no_resi }}</td>
+            @else
+            <td></td>
+            <td></td>
+            @endif
+        </tr>
+        @endif
         <tr>
             <td><strong>Alamat Kirim</strong></td>
             <td colspan="3">: {{ $transaksi->alamat_pengiriman }}</td>
@@ -171,12 +192,18 @@
     <table class="total-box">
         <tr>
             <td width="75%" class="text-right fw-bold">SUBTOTAL :</td>
-            <td width="25%" class="text-right fw-bold">Rp {{ number_format($transaksi->total_bayar - $transaksi->ongkir, 0, ',', '.') }}</td>
+            <td width="25%" class="text-right fw-bold">Rp {{ number_format($transaksi->total_bayar - $transaksi->ongkir - $transaksi->biaya_packing, 0, ',', '.') }}</td>
         </tr>
         @if($transaksi->ongkir > 0)
         <tr>
             <td width="75%" class="text-right fw-bold">ONGKOS KIRIM :</td>
             <td width="25%" class="text-right fw-bold">Rp {{ number_format($transaksi->ongkir, 0, ',', '.') }}</td>
+        </tr>
+        @endif
+        @if($transaksi->biaya_packing > 0)
+        <tr>
+            <td width="75%" class="text-right fw-bold">ONGKOS PACKING :</td>
+            <td width="25%" class="text-right fw-bold">Rp {{ number_format($transaksi->biaya_packing, 0, ',', '.') }}</td>
         </tr>
         @endif
         <tr>

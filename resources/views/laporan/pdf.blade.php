@@ -34,8 +34,9 @@
     <div class="judul-laporan">{{ $judul }}</div>
 
     <div class="info">
+        Periode       : {{ $periode_label ?? 'Semua Waktu' }}<br>
         Tanggal Cetak : {{ $waktu_cetak }}<br>
-        Dicetak Oleh  : Administrator
+        Dicetak Oleh  : {{ $dicetak_oleh ?? 'Administrator' }}
     </div>
 
     <table>

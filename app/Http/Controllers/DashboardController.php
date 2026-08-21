@@ -53,7 +53,7 @@ class DashboardController extends Controller
         }
 
         $admin_teknisi_stats = collect();
-        if (Auth::user()->peran == 'admin' || Auth::user()->peran == 'kasir') {
+        if (in_array(Auth::user()->peran, ['admin', 'kasir', 'pimpinan'])) {
             $teknisis = \App\Models\User::where('peran', 'teknisi')->get();
             $admin_teknisi_stats = $teknisis->map(function ($t) {
                 $servis = ServisDetail::where('teknisi_id', $t->id)->get();
@@ -81,7 +81,7 @@ class DashboardController extends Controller
     public function getStatistiks(Request $request)
     {
         // Check permissions
-        if (Auth::user()->peran !== 'admin' && Auth::user()->peran !== 'kasir') {
+        if (!in_array(Auth::user()->peran, ['admin', 'kasir', 'pimpinan'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

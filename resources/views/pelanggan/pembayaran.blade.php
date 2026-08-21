@@ -29,32 +29,49 @@
                     </div>
                     @endif
 
-                    <div class="d-flex justify-content-between py-3 border-bottom">
-                        <span class="text-muted">Total Belanja:</span>
-                        <span class="fw-bold text-primary fs-5">Rp {{ number_format($transaksi->total_bayar, 0, ',', '.') }}</span>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Subtotal Produk:</span>
+                        <span class="fw-semibold text-dark">Rp {{ number_format($transaksi->total_bayar - $transaksi->ongkir - $transaksi->biaya_packing, 0, ',', '.') }}</span>
                     </div>
 
                     @if($transaksi->metode_pengambilan == 'diantar')
-                    <div class="d-flex justify-content-between py-3 border-bottom">
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Ekspedisi & Layanan:</span>
+                        <span class="fw-bold text-dark">{{ $transaksi->ekspedisi->nama_ekspedisi ?? 'Ekspedisi' }} {{ $transaksi->layanan_ekspedisi ? '(' . $transaksi->layanan_ekspedisi . ')' : '' }}</span>
+                    </div>
+                    @if($transaksi->kota_tujuan)
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Tujuan Pengiriman:</span>
+                        <span class="fw-semibold text-dark">{{ $transaksi->kota_tujuan }}</span>
+                    </div>
+                    @endif
+                    <div class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Ongkos Kirim:</span>
-                        <span class="fw-bold">Rp {{ number_format($transaksi->ongkir, 0, ',', '.') }}</span>
+                        <span class="fw-bold text-primary">Rp {{ number_format($transaksi->ongkir, 0, ',', '.') }}</span>
                     </div>
-                    <div class="d-flex justify-content-between py-3 border-bottom">
-                        <span class="text-muted">Ekspedisi:</span>
-                        <span class="fw-bold">{{ $transaksi->ekspedisi->nama_ekspedisi ?? '-' }} ({{ $transaksi->jarak_km ?? '-' }} km)</span>
+                    @if($transaksi->biaya_packing > 0)
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span class="text-muted">Ongkos Packing Proteksi:</span>
+                        <span class="fw-bold text-warning">Rp {{ number_format($transaksi->biaya_packing, 0, ',', '.') }}</span>
                     </div>
+                    @endif
                     @else
-                    <div class="d-flex justify-content-between py-3 border-bottom">
+                    <div class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Metode:</span>
-                        <span class="fw-bold">Ambil di Toko</span>
+                        <span class="fw-bold text-success"><i class="bi bi-shop me-1"></i> Ambil di Toko</span>
                     </div>
                     @if($transaksi->estimasi_diambil)
-                    <div class="d-flex justify-content-between py-3 border-bottom">
+                    <div class="d-flex justify-content-between py-2 border-bottom">
                         <span class="text-muted">Estimasi Ambil:</span>
                         <span class="fw-bold text-dark"><i class="bi bi-clock me-1 text-primary"></i> {{ \Carbon\Carbon::parse($transaksi->estimasi_diambil)->format('d M Y H:i') }}</span>
                     </div>
                     @endif
                     @endif
+
+                    <div class="d-flex justify-content-between py-3 border-bottom bg-light px-2 rounded-3 mt-2">
+                        <span class="text-dark fw-bold fs-5">Total Pembayaran:</span>
+                        <span class="fw-bold text-primary fs-5">Rp {{ number_format($transaksi->total_bayar, 0, ',', '.') }}</span>
+                    </div>
 
                     @if($transaksi->bukti_bayar)
                     <div class="mt-4 text-center">

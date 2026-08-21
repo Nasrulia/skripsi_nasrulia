@@ -34,7 +34,7 @@
         <p class="toko-alamat">Banjarmasin, Kalimantan Selatan | email: admin@njk.com | Telp: 0851-8239-2525 / 0852-8239-2526</p>
     </div>
     <div class="judul-laporan">{{ $judul }}</div>
-    <div class="info">Periode: Seluruh Transaksi Lunas | Tanggal Cetak: {{ $waktu_cetak }}</div>
+    <div class="info">Periode: {{ $periode_label ?? 'Semua Waktu' }} | Tanggal Cetak: {{ $waktu_cetak }} | Dicetak Oleh: {{ $dicetak_oleh ?? 'Administrator' }}</div>
 
     <table>
         <tr>

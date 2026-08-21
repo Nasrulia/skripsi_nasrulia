@@ -302,7 +302,7 @@
     </script>
     @endif
 
-    @if(Auth::user()->peran == 'admin' || Auth::user()->peran == 'kasir')
+    @if(in_array(Auth::user()->peran, ['admin', 'kasir', 'pimpinan']))
     <div class="row g-4 mb-4">
         <div class="col-xl-3 col-md-6">
             <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">

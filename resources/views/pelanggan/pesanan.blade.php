@@ -222,9 +222,21 @@
                     @if($p->metode_pengambilan == 'diantar' && $p->alamat_pengiriman)
                     <div class="alert alert-info border-0 mt-3 mb-3 d-flex align-items-center rounded-3">
                         <i class="bi bi-truck fs-4 me-3 text-info"></i>
-                        <div>
-                            <small class="fw-bold d-block">Pengiriman:</small>
-                            <small class="text-dark">{{ $p->ekspedisi->nama_ekspedisi ?? 'Ekspedisi' }} - Rp {{ number_format($p->ongkir, 0, ',', '.') }} ({{ $p->jarak_km }} km)</small>
+                        <div class="w-100">
+                            <small class="fw-bold d-block text-primary">Informasi Pengiriman Ekspedisi:</small>
+                            <small class="text-dark d-block">
+                                <strong>{{ $p->ekspedisi->nama_ekspedisi ?? 'Ekspedisi' }} {{ $p->layanan_ekspedisi ? '(' . $p->layanan_ekspedisi . ')' : '' }}</strong> &bull; 
+                                Ongkir: <strong>Rp {{ number_format($p->ongkir, 0, ',', '.') }}</strong>
+                                @if($p->biaya_packing > 0)
+                                    &bull; Ongkos Packing: <strong>Rp {{ number_format($p->biaya_packing, 0, ',', '.') }}</strong>
+                                @endif
+                                @if($p->estimasi_pengiriman)
+                                    &bull; Estimasi: <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ $p->estimasi_pengiriman }}</span>
+                                @endif
+                            </small>
+                            @if($p->kota_tujuan)
+                            <small class="text-muted d-block">Tujuan: {{ $p->kota_tujuan }} {{ $p->provinsi_tujuan ? ', ' . $p->provinsi_tujuan : '' }}</small>
+                            @endif
                             <small class="text-dark d-block">Alamat: {{ $p->alamat_pengiriman }}</small>
                             @if($p->no_resi)
                             <small class="text-success d-block fw-bold mt-1"><i class="bi bi-tag-fill me-1"></i> Nomor Resi: {{ $p->no_resi }}</small>

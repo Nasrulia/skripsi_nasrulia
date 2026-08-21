@@ -18,9 +18,23 @@ class Produk extends Model
         'stok',
         'harga_beli',
         'harga_jual',
+        'berat_gram',
+        'ukuran_packing',
         'foto',
         'deskripsi'
     ];
+
+    public function getNominalPackingAttribute(): int
+    {
+        $rates = [
+            'kecil' => 15000,
+            'sedang' => 25000,
+            'besar' => 40000,
+            'ekstra_besar' => 50000,
+        ];
+
+        return $rates[$this->ukuran_packing] ?? 15000;
+    }
 
     // Ini fungsi relasi yang bikin error tadi karena hilang
     public function kategori()

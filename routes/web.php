@@ -9,6 +9,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\KatalogController;
 use App\Http\Controllers\TeknisiController;
 use App\Http\Controllers\TeknisiManageController;
+use App\Http\Controllers\RajaOngkirController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -33,19 +34,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/dashboard/statistiks', [App\Http\Controllers\DashboardController::class, 'getStatistiks'])->name('dashboard.statistiks');
 
 
-    // 1. AKSES KHUSUS ADMIN (Master Data & Laporan)
+    // 1. AKSES KHUSUS ADMIN (Master Data)
     Route::middleware(['peran:admin'])->group(function () {
         Route::resource('kategori', KategoriController::class);
         Route::resource('produk', ProdukController::class);
         Route::resource('ekspedisi', EkspedisiController::class);
         Route::resource('aturan-chatbot', AturanChatbotController::class);
         Route::resource('data-teknisi', TeknisiManageController::class);
+    });
 
-        // Laporan PDF
-        Route::prefix('laporan')->name('laporan.')->group(function () {
-            Route::get('/', [App\Http\Controllers\LaporanController::class, 'index'])->name('index');
-            Route::get('/cetak/{tipe}', [App\Http\Controllers\LaporanController::class, 'cetakPDF'])->name('cetak');
-        });
+    // 1.1 AKSES LAPORAN TOKO (Admin, Pimpinan & Kasir)
+    Route::middleware(['peran:admin,pimpinan,kasir'])->prefix('laporan')->name('laporan.')->group(function () {
+        Route::get('/', [App\Http\Controllers\LaporanController::class, 'index'])->name('index');
+        Route::get('/preview/{tipe}', [App\Http\Controllers\LaporanController::class, 'preview'])->name('preview');
+        Route::get('/cetak/{tipe}', [App\Http\Controllers\LaporanController::class, 'cetakPDF'])->name('cetak');
     });
 
     // 2. AKSES ADMIN, KASIR & TEKNISI (Transaksi & Servis)
@@ -86,6 +88,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/keranjang/hapus/{id}', [KatalogController::class, 'hapusItem'])->name('keranjang.hapus');
         Route::post('/checkout', [KatalogController::class, 'checkout'])->name('checkout');
         Route::get('/pesanan-saya', [App\Http\Controllers\TransaksiController::class, 'pesananSaya'])->name('pesanan.saya');
+
+        // RajaOngkir API Routes
+        Route::prefix('api/rajaongkir')->name('rajaongkir.')->group(function () {
+            Route::get('/provinces', [RajaOngkirController::class, 'getProvinces'])->name('provinces');
+            Route::get('/cities/{provinceId}', [RajaOngkirController::class, 'getCities'])->name('cities');
+            Route::post('/check-ongkir', [RajaOngkirController::class, 'checkOngkir'])->name('check-ongkir');
+        });
 
         // Pembayaran
         Route::get('/pembayaran/{id}', [KatalogController::class, 'formPembayaran'])->name('pembayaran.form');

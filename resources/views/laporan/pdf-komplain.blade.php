@@ -40,8 +40,9 @@
     <div class="judul-laporan">{{ $judul }}</div>
 
     <div class="info">
+        Periode       : {{ $periode_label ?? 'Semua Waktu' }}<br>
         Tanggal Cetak : {{ $waktu_cetak }}<br>
-        Dicetak Oleh  : Administrator<br>
+        Dicetak Oleh  : {{ $dicetak_oleh ?? 'Administrator' }}<br>
         Sumber Data   : Keluhan Chatbot AI & Kendala Layanan Servis
     </div>
 

@@ -16,10 +16,12 @@ use Illuminate\Support\Facades\Storage;
 class KatalogController extends Controller
 {
     protected WhatsAppService $wa;
+    protected \App\Services\RajaOngkirService $rajaOngkir;
 
-    public function __construct(WhatsAppService $wa)
+    public function __construct(WhatsAppService $wa, \App\Services\RajaOngkirService $rajaOngkir)
     {
         $this->wa = $wa;
+        $this->rajaOngkir = $rajaOngkir;
     }
 
     public function index(Request $request)
@@ -89,8 +91,13 @@ class KatalogController extends Controller
 
     public function tampilkanKeranjang()
     {
+        $keranjang = session()->get('keranjang', []);
+        $totalBeratGram = $this->rajaOngkir->calculateTotalWeight($keranjang);
+        $packingInfo = $this->rajaOngkir->calculatePackingCost($keranjang);
+        $provinces = $this->rajaOngkir->getProvinces();
         $ekspedisi = Ekspedisi::all();
-        return view('pelanggan.keranjang', compact('ekspedisi'));
+
+        return view('pelanggan.keranjang', compact('ekspedisi', 'provinces', 'totalBeratGram', 'packingInfo'));
     }
 
     public function hapusItem($id)
@@ -105,32 +112,49 @@ class KatalogController extends Controller
 
     public function checkout(Request $request)
     {
-        $keranjang = session()->get('keranjang');
-        if (!$keranjang) return redirect()->back();
+        $keranjang = session()->get('keranjang', []);
+        if (empty($keranjang)) return redirect()->back();
 
         $request->validate([
             'metode_pengambilan' => 'required|in:diantar,diambil',
-            'ekspedisi_id' => 'required_if:metode_pengambilan,diantar|nullable|exists:ekspedisi,id',
-            'jarak_km' => 'required_if:metode_pengambilan,diantar|nullable|numeric|min:0',
+            'nama_ekspedisi' => 'required_if:metode_pengambilan,diantar|nullable|string',
+            'layanan_ekspedisi' => 'required_if:metode_pengambilan,diantar|nullable|string',
+            'provinsi_tujuan' => 'required_if:metode_pengambilan,diantar|nullable|string',
+            'kota_tujuan' => 'required_if:metode_pengambilan,diantar|nullable|string',
             'alamat_pengiriman' => 'required_if:metode_pengambilan,diantar|nullable|string',
+            'ongkir' => 'required_if:metode_pengambilan,diantar|nullable|numeric|min:0',
+            'biaya_packing' => 'required_if:metode_pengambilan,diantar|nullable|numeric|min:0',
         ]);
 
-        $total = 0;
+        $subtotal = 0;
         foreach ($keranjang as $details) {
-            $total += $details['harga'] * $details['jumlah'];
+            $subtotal += $details['harga'] * $details['jumlah'];
         }
 
         $ongkir = 0;
-        if ($request->metode_pengambilan == 'diantar' && $request->ekspedisi_id) {
-            $ekspedisi = Ekspedisi::find($request->ekspedisi_id);
-            if ($ekspedisi) {
-                $ongkir = $ekspedisi->ongkir_per_km * ($request->jarak_km ?? 0);
+        $biaya_packing = 0;
+        $ekspedisiId = null;
+        $totalBerat = $this->rajaOngkir->calculateTotalWeight($keranjang);
+        $metode_pembayaran = $request->metode_pembayaran ?? 'transfer';
+
+        if ($request->metode_pengambilan == 'diantar') {
+            $ongkir = (float) $request->input('ongkir', 0);
+            
+            // Hitung/verifikasi biaya packing dari barang di keranjang
+            $packingData = $this->rajaOngkir->calculatePackingCost($keranjang);
+            $biaya_packing = (float) ($request->input('biaya_packing') ?: $packingData['biaya']);
+
+            // Hubungkan dengan ekspedisi model
+            if ($request->filled('nama_ekspedisi')) {
+                $ekspedisi = Ekspedisi::firstOrCreate(['nama_ekspedisi' => strtoupper($request->nama_ekspedisi)]);
+                $ekspedisiId = $ekspedisi->id;
+            } elseif ($request->filled('ekspedisi_id')) {
+                $ekspedisiId = $request->ekspedisi_id;
             }
         }
 
         $nominal_dp = 0;
         $batas_waktu_pengambilan = null;
-        $metode_pembayaran = $request->metode_pembayaran ?? 'transfer';
 
         if ($request->metode_pengambilan == 'diambil') {
             $request->validate([
@@ -141,7 +165,7 @@ class KatalogController extends Controller
             $estimasi = \Carbon\Carbon::parse($request->estimasi_diambil);
             $now = \Carbon\Carbon::now();
 
-            if ($total < 500000) {
+            if ($subtotal < 500000) {
                 if ($estimasi->gt($now->copy()->addDays(3))) {
                     return redirect()->back()->withErrors([
                         'estimasi_diambil' => 'Untuk pemesanan aksesoris di bawah Rp 500.000, estimasi pengambilan tidak boleh lebih dari 3 hari.'
@@ -156,10 +180,10 @@ class KatalogController extends Controller
                     }
                     
                     // Hitung nominal DP
-                    if ($total < 2000000) {
+                    if ($subtotal < 2000000) {
                         $nominal_dp = 200000;
                     } else {
-                        $nominal_dp = $total * 0.20;
+                        $nominal_dp = $subtotal * 0.20;
                     }
                 }
             }
@@ -171,18 +195,25 @@ class KatalogController extends Controller
             }
         }
 
+        $totalBayar = $subtotal + $ongkir + $biaya_packing;
+
         $transaksi = Transaksi::create([
             'kode_transaksi' => 'TRX-' . time(),
             'user_id' => Auth::id(),
             'nama_pelanggan' => Auth::user()->name,
             'tipe' => 'penjualan',
-            'total_bayar' => $total + $ongkir,
+            'total_bayar' => $totalBayar,
             'status' => 'Pending',
             'metode_pengambilan' => $request->metode_pengambilan,
-            'ekspedisi_id' => $request->metode_pengambilan == 'diantar' ? $request->ekspedisi_id : null,
-            'jarak_km' => $request->metode_pengambilan == 'diantar' ? $request->jarak_km : null,
+            'ekspedisi_id' => $ekspedisiId,
+            'layanan_ekspedisi' => $request->metode_pengambilan == 'diantar' ? $request->layanan_ekspedisi : null,
+            'estimasi_pengiriman' => $request->metode_pengambilan == 'diantar' ? ($request->estimasi_pengiriman ?? '2-3 hari') : null,
+            'berat_total_gram' => $totalBerat,
             'ongkir' => $ongkir,
+            'biaya_packing' => $biaya_packing,
             'alamat_pengiriman' => $request->metode_pengambilan == 'diantar' ? $request->alamat_pengiriman : null,
+            'provinsi_tujuan' => $request->metode_pengambilan == 'diantar' ? $request->provinsi_tujuan : null,
+            'kota_tujuan' => $request->metode_pengambilan == 'diantar' ? $request->kota_tujuan : null,
             'status_pengiriman' => $request->metode_pengambilan == 'diantar' ? 'diproses' : null,
             'metode_pembayaran' => $metode_pembayaran,
             'estimasi_diambil' => $request->metode_pengambilan == 'diambil' ? $request->estimasi_diambil : null,
@@ -200,15 +231,25 @@ class KatalogController extends Controller
             ]);
 
             $p = Produk::find($id);
-            $p->stok -= $details['jumlah'];
-            $p->save();
+            if ($p) {
+                $p->stok -= $details['jumlah'];
+                $p->save();
+            }
         }
 
         try {
+            $shippingInfoNote = "";
+            if ($request->metode_pengambilan == 'diantar') {
+                $shippingInfoNote = "\n- Ekspedisi: " . ($request->nama_ekspedisi ?? 'Ekspedisi') . " (" . ($request->layanan_ekspedisi ?? 'REG') . ")" .
+                                    "\n- Tujuan: " . ($request->kota_tujuan ?? '-') .
+                                    "\n- Ongkir: Rp " . number_format($ongkir, 0, ',', '.') .
+                                    "\n- Packing: Rp " . number_format($biaya_packing, 0, ',', '.');
+            }
+
             Notifikasi::create([
                 'user_id' => null,
                 'judul' => '🛒 Checkout Pesanan Baru',
-                'pesan' => "Pelanggan **" . Auth::user()->name . "** baru saja melakukan checkout pesanan dengan Kode Transaksi **" . $transaksi->kode_transaksi . "**.",
+                'pesan' => "Pelanggan **" . Auth::user()->name . "** baru saja melakukan checkout pesanan dengan Kode Transaksi **" . $transaksi->kode_transaksi . "** Total: Rp " . number_format($totalBayar, 0, ',', '.') . ".",
                 'link' => route('transaksi.index', ['kode' => $transaksi->kode_transaksi]),
                 'is_read' => false,
                 'tipe' => 'checkout',
@@ -220,7 +261,7 @@ class KatalogController extends Controller
                     $nomor_admin,
                     Auth::user()->name,
                     $transaksi->kode_transaksi,
-                    $total + $ongkir,
+                    $totalBayar,
                     'Pending - Menunggu Pembayaran'
                 );
             }

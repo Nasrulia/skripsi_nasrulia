@@ -17,10 +17,13 @@ class EkspedisiController extends Controller
     {
         $request->validate([
             'nama_ekspedisi' => 'required|string|max:255',
-            'ongkir_per_km' => 'required|numeric|min:0',
+            'ongkir_per_km' => 'nullable|numeric|min:0',
         ]);
 
-        Ekspedisi::create($request->all());
+        $data = $request->all();
+        $data['ongkir_per_km'] = $data['ongkir_per_km'] ?? 0;
+
+        Ekspedisi::create($data);
 
         return redirect()->route('ekspedisi.index')->with('success', 'Ekspedisi berhasil ditambahkan!');
     }
@@ -29,11 +32,13 @@ class EkspedisiController extends Controller
     {
         $request->validate([
             'nama_ekspedisi' => 'required|string|max:255',
-            'ongkir_per_km' => 'required|numeric|min:0',
+            'ongkir_per_km' => 'nullable|numeric|min:0',
         ]);
 
         $ekspedisi = Ekspedisi::findOrFail($id);
-        $ekspedisi->update($request->all());
+        $data = $request->all();
+        $data['ongkir_per_km'] = $data['ongkir_per_km'] ?? 0;
+        $ekspedisi->update($data);
 
         return redirect()->route('ekspedisi.index')->with('success', 'Ekspedisi berhasil diperbarui!');
     }
